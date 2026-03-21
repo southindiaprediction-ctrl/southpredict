@@ -31,6 +31,11 @@ function MarketCard({ market, onBet }) {
     setShowConfirm(null)
   }
 
+  function shareOnWhatsApp() {
+    const text = `🏏 SouthPredict\n\n${market.question}\n\nYES ${market.yes_percent}% | NO ${100 - market.yes_percent}%\n\nBet now 👉 https://southpredict-app.vercel.app`
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
   return (
     <div style={{
       background: "#1a1a2e",
@@ -99,17 +104,24 @@ function MarketCard({ market, onBet }) {
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <button onClick={confirmBet} style={{
-              flex: 1, padding: "10px",
+              flex: 1,
+              padding: "10px",
               background: showConfirm === 'yes' ? "#1a9e5c" : "#e05c2a",
-              border: "none", color: "white", borderRadius: "8px",
-              cursor: "pointer", fontWeight: "bold"
+              border: "none",
+              color: "white",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: "bold"
             }}>
               Confirm ₹{betAmount} on {showConfirm.toUpperCase()}
             </button>
             <button onClick={() => setShowConfirm(null)} style={{
-              padding: "10px 16px", background: "transparent",
-              border: "1px solid #444", color: "#888",
-              borderRadius: "8px", cursor: "pointer"
+              padding: "10px 16px",
+              background: "transparent",
+              border: "1px solid #444",
+              color: "#888",
+              borderRadius: "8px",
+              cursor: "pointer"
             }}>Cancel</button>
           </div>
         </div>
@@ -118,23 +130,29 @@ function MarketCard({ market, onBet }) {
       {!showConfirm && (
         <div style={{ display: "flex", gap: "10px", marginBottom: "14px" }}>
           <button onClick={() => handleVote('yes')} disabled={!!voted} style={{
-            flex: 1, padding: "10px",
+            flex: 1,
+            padding: "10px",
             background: voted === 'yes' ? "#1a9e5c" : "transparent",
             border: "1px solid #1a9e5c",
             color: voted === 'yes' ? "white" : "#1a9e5c",
-            borderRadius: "8px", cursor: voted ? "not-allowed" : "pointer",
-            fontWeight: "bold", fontSize: "14px",
+            borderRadius: "8px",
+            cursor: voted ? "not-allowed" : "pointer",
+            fontWeight: "bold",
+            fontSize: "14px",
             opacity: voted && voted !== 'yes' ? 0.4 : 1
           }}>
             {voted === 'yes' ? '✓ Bet YES' : 'YES'}
           </button>
           <button onClick={() => handleVote('no')} disabled={!!voted} style={{
-            flex: 1, padding: "10px",
+            flex: 1,
+            padding: "10px",
             background: voted === 'no' ? "#e05c2a" : "transparent",
             border: "1px solid #e05c2a",
             color: voted === 'no' ? "white" : "#e05c2a",
-            borderRadius: "8px", cursor: voted ? "not-allowed" : "pointer",
-            fontWeight: "bold", fontSize: "14px",
+            borderRadius: "8px",
+            cursor: voted ? "not-allowed" : "pointer",
+            fontWeight: "bold",
+            fontSize: "14px",
             opacity: voted && voted !== 'no' ? 0.4 : 1
           }}>
             {voted === 'no' ? '✓ Bet NO' : 'NO'}
@@ -142,10 +160,25 @@ function MarketCard({ market, onBet }) {
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", color: "#888", fontSize: "12px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#888", fontSize: "12px" }}>
         <span>Volume: {formatVolume(market.volume)}</span>
-        {voted && <span style={{ color: "#ffd700" }}>✓ You bet {voted.toUpperCase()}</span>}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {voted && <span style={{ color: "#ffd700" }}>✓ You bet {voted.toUpperCase()}</span>}
+          <button onClick={shareOnWhatsApp} style={{
+            background: "#25D366",
+            border: "none",
+            color: "white",
+            padding: "5px 10px",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "12px",
+            fontWeight: "bold"
+          }}>
+            Share on WhatsApp
+          </button>
+        </div>
       </div>
+
     </div>
   )
 }
@@ -211,11 +244,14 @@ function App() {
         <div style={{ display: "flex", gap: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
           {categories.map(cat => (
             <button key={cat} onClick={() => setFilter(cat)} style={{
-              padding: "6px 16px", borderRadius: "20px", border: "1px solid",
+              padding: "6px 16px",
+              borderRadius: "20px",
+              border: "1px solid",
               borderColor: filter === cat ? "white" : "#444",
               background: filter === cat ? "white" : "transparent",
               color: filter === cat ? "#0f0f23" : "#888",
-              cursor: "pointer", fontSize: "13px",
+              cursor: "pointer",
+              fontSize: "13px",
               fontWeight: filter === cat ? "bold" : "normal"
             }}>{cat}</button>
           ))}
