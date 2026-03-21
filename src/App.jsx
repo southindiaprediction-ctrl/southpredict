@@ -1,53 +1,12 @@
-import { useState } from 'react'
-
-const initialMarkets = [
-  {
-    id: 1,
-    question: "Will CSK win IPL 2026?",
-    category: "Cricket",
-    yesPercent: 67,
-    volume: 24000,
-    closes: "May 2026"
-  },
-  {
-    id: 2,
-    question: "Will DMK win more than 150 seats in TN 2026 elections?",
-    category: "Politics",
-    yesPercent: 54,
-    volume: 18000,
-    closes: "Apr 2026"
-  },
-  {
-    id: 3,
-    question: "Will Pushpa 3 gross over ₹1000cr opening weekend?",
-    category: "Cinema",
-    yesPercent: 41,
-    volume: 8900,
-    closes: "Dec 2026"
-  },
-  {
-    id: 4,
-    question: "Will Bengaluru get a new metro line by Dec 2026?",
-    category: "Infrastructure",
-    yesPercent: 72,
-    volume: 11000,
-    closes: "Dec 2026"
-  },
-  {
-    id: 5,
-    question: "Will Vijay's TVTV party contest all 234 TN seats?",
-    category: "Politics",
-    yesPercent: 38,
-    volume: 32000,
-    closes: "Mar 2026"
-  }
-]
+import { useState, useEffect } from 'react'
+import { supabase } from './supabase'
 
 const categoryColors = {
   Cricket: "#1a9e5c",
   Politics: "#e05c2a",
   Cinema: "#9b59b6",
-  Infrastructure: "#2980b9"
+  Infrastructure: "#2980b9",
+  Health: "#e74c3c"
 }
 
 function formatVolume(amount) {
@@ -66,9 +25,9 @@ function MarketCard({ market, onBet }) {
     setShowConfirm(choice)
   }
 
-  function confirmBet() {
+  async function confirmBet() {
     setVoted(showConfirm)
-    onBet(market.id, showConfirm, betAmount)
+    await onBet(market.id, showConfirm, betAmount)
     setShowConfirm(null)
   }
 
@@ -78,12 +37,11 @@ function MarketCard({ market, onBet }) {
       border: "1px solid #2a2a4a",
       borderRadius: "12px",
       padding: "20px",
-      marginBottom: "16px",
-      transition: "border-color 0.2s"
+      marginBottom: "16px"
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
         <span style={{
-          background: categoryColors[market.category],
+          background: categoryColors[market.category] || "#444",
           color: "white",
           padding: "3px 10px",
           borderRadius: "20px",
@@ -100,12 +58,12 @@ function MarketCard({ market, onBet }) {
 
       <div style={{ marginBottom: "14px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-          <span style={{ color: "#1a9e5c", fontWeight: "bold" }}>YES {market.yesPercent}%</span>
-          <span style={{ color: "#e05c2a", fontWeight: "bold" }}>NO {100 - market.yesPercent}%</span>
+          <span style={{ color: "#1a9e5c", fontWeight: "bold" }}>YES {market.yes_percent}%</span>
+          <span style={{ color: "#e05c2a", fontWeight: "bold" }}>NO {100 - market.yes_percent}%</span>
         </div>
         <div style={{ background: "#2a2a4a", borderRadius: "4px", height: "8px" }}>
           <div style={{
-            width: `${market.yesPercent}%`,
+            width: `${market.yes_percent}%`,
             background: "linear-gradient(90deg, #1a9e5c, #27ae60)",
             height: "8px",
             borderRadius: "4px",
@@ -127,88 +85,58 @@ function MarketCard({ market, onBet }) {
           </p>
           <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
             {[50, 100, 500, 1000].map(amt => (
-              <button
-                key={amt}
-                onClick={() => setBetAmount(amt)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: "6px",
-                  border: "1px solid",
-                  borderColor: betAmount === amt ? "white" : "#444",
-                  background: betAmount === amt ? "white" : "transparent",
-                  color: betAmount === amt ? "#0f0f23" : "#888",
-                  cursor: "pointer",
-                  fontSize: "13px"
-                }}>
-                ₹{amt}
-              </button>
+              <button key={amt} onClick={() => setBetAmount(amt)} style={{
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: "1px solid",
+                borderColor: betAmount === amt ? "white" : "#444",
+                background: betAmount === amt ? "white" : "transparent",
+                color: betAmount === amt ? "#0f0f23" : "#888",
+                cursor: "pointer",
+                fontSize: "13px"
+              }}>₹{amt}</button>
             ))}
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              onClick={confirmBet}
-              style={{
-                flex: 1,
-                padding: "10px",
-                background: showConfirm === 'yes' ? "#1a9e5c" : "#e05c2a",
-                border: "none",
-                color: "white",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontWeight: "bold"
-              }}>
+            <button onClick={confirmBet} style={{
+              flex: 1, padding: "10px",
+              background: showConfirm === 'yes' ? "#1a9e5c" : "#e05c2a",
+              border: "none", color: "white", borderRadius: "8px",
+              cursor: "pointer", fontWeight: "bold"
+            }}>
               Confirm ₹{betAmount} on {showConfirm.toUpperCase()}
             </button>
-            <button
-              onClick={() => setShowConfirm(null)}
-              style={{
-                padding: "10px 16px",
-                background: "transparent",
-                border: "1px solid #444",
-                color: "#888",
-                borderRadius: "8px",
-                cursor: "pointer"
-              }}>
-              Cancel
-            </button>
+            <button onClick={() => setShowConfirm(null)} style={{
+              padding: "10px 16px", background: "transparent",
+              border: "1px solid #444", color: "#888",
+              borderRadius: "8px", cursor: "pointer"
+            }}>Cancel</button>
           </div>
         </div>
       )}
 
       {!showConfirm && (
         <div style={{ display: "flex", gap: "10px", marginBottom: "14px" }}>
-          <button
-            onClick={() => handleVote('yes')}
-            disabled={!!voted}
-            style={{
-              flex: 1,
-              padding: "10px",
-              background: voted === 'yes' ? "#1a9e5c" : "transparent",
-              border: "1px solid #1a9e5c",
-              color: voted === 'yes' ? "white" : "#1a9e5c",
-              borderRadius: "8px",
-              cursor: voted ? "not-allowed" : "pointer",
-              fontWeight: "bold",
-              fontSize: "14px",
-              opacity: voted && voted !== 'yes' ? 0.4 : 1
-            }}>
+          <button onClick={() => handleVote('yes')} disabled={!!voted} style={{
+            flex: 1, padding: "10px",
+            background: voted === 'yes' ? "#1a9e5c" : "transparent",
+            border: "1px solid #1a9e5c",
+            color: voted === 'yes' ? "white" : "#1a9e5c",
+            borderRadius: "8px", cursor: voted ? "not-allowed" : "pointer",
+            fontWeight: "bold", fontSize: "14px",
+            opacity: voted && voted !== 'yes' ? 0.4 : 1
+          }}>
             {voted === 'yes' ? '✓ Bet YES' : 'YES'}
           </button>
-          <button
-            onClick={() => handleVote('no')}
-            disabled={!!voted}
-            style={{
-              flex: 1,
-              padding: "10px",
-              background: voted === 'no' ? "#e05c2a" : "transparent",
-              border: "1px solid #e05c2a",
-              color: voted === 'no' ? "white" : "#e05c2a",
-              borderRadius: "8px",
-              cursor: voted ? "not-allowed" : "pointer",
-              fontWeight: "bold",
-              fontSize: "14px",
-              opacity: voted && voted !== 'no' ? 0.4 : 1
-            }}>
+          <button onClick={() => handleVote('no')} disabled={!!voted} style={{
+            flex: 1, padding: "10px",
+            background: voted === 'no' ? "#e05c2a" : "transparent",
+            border: "1px solid #e05c2a",
+            color: voted === 'no' ? "white" : "#e05c2a",
+            borderRadius: "8px", cursor: voted ? "not-allowed" : "pointer",
+            fontWeight: "bold", fontSize: "14px",
+            opacity: voted && voted !== 'no' ? 0.4 : 1
+          }}>
             {voted === 'no' ? '✓ Bet NO' : 'NO'}
           </button>
         </div>
@@ -223,24 +151,46 @@ function MarketCard({ market, onBet }) {
 }
 
 function App() {
-  const [markets, setMarkets] = useState(initialMarkets)
+  const [markets, setMarkets] = useState([])
   const [filter, setFilter] = useState("All")
+  const [loading, setLoading] = useState(true)
 
-  const categories = ["All", "Cricket", "Politics", "Cinema", "Infrastructure"]
+  const categories = ["All", "Cricket", "Politics", "Cinema", "Infrastructure", "Health"]
 
-  function handleBet(marketId, choice, amount) {
-    setMarkets(prev => prev.map(m => {
-      if (m.id !== marketId) return m
-      const impact = Math.min(3, amount / 100)
-      const newYes = choice === 'yes'
-        ? Math.min(97, m.yesPercent + impact)
-        : Math.max(3, m.yesPercent - impact)
-      return {
-        ...m,
-        yesPercent: Math.round(newYes),
-        volume: m.volume + amount
-      }
-    }))
+  useEffect(() => {
+    fetchMarkets()
+  }, [])
+
+  async function fetchMarkets() {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('markets')
+      .select('*')
+      .order('volume', { ascending: false })
+    if (!error) setMarkets(data)
+    setLoading(false)
+  }
+
+  async function handleBet(marketId, choice, amount) {
+    await supabase.from('bets').insert({
+      market_id: marketId,
+      choice: choice,
+      amount: amount,
+      user_session: Math.random().toString(36).substr(2, 9)
+    })
+
+    const market = markets.find(m => m.id === marketId)
+    const impact = Math.min(3, amount / 100)
+    const newYes = choice === 'yes'
+      ? Math.min(97, market.yes_percent + impact)
+      : Math.max(3, market.yes_percent - impact)
+
+    await supabase.from('markets').update({
+      yes_percent: Math.round(newYes),
+      volume: market.volume + amount
+    }).eq('id', marketId)
+
+    fetchMarkets()
   }
 
   const filtered = filter === "All" ? markets : markets.filter(m => m.category === filter)
@@ -260,28 +210,26 @@ function App() {
 
         <div style={{ display: "flex", gap: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
           {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setFilter(cat)}
-              style={{
-                padding: "6px 16px",
-                borderRadius: "20px",
-                border: "1px solid",
-                borderColor: filter === cat ? "white" : "#444",
-                background: filter === cat ? "white" : "transparent",
-                color: filter === cat ? "#0f0f23" : "#888",
-                cursor: "pointer",
-                fontSize: "13px",
-                fontWeight: filter === cat ? "bold" : "normal"
-              }}>
-              {cat}
-            </button>
+            <button key={cat} onClick={() => setFilter(cat)} style={{
+              padding: "6px 16px", borderRadius: "20px", border: "1px solid",
+              borderColor: filter === cat ? "white" : "#444",
+              background: filter === cat ? "white" : "transparent",
+              color: filter === cat ? "#0f0f23" : "#888",
+              cursor: "pointer", fontSize: "13px",
+              fontWeight: filter === cat ? "bold" : "normal"
+            }}>{cat}</button>
           ))}
         </div>
 
-        {filtered.map(market => (
-          <MarketCard key={market.id} market={market} onBet={handleBet} />
-        ))}
+        {loading ? (
+          <div style={{ color: "#888", textAlign: "center", padding: "40px" }}>
+            Loading markets...
+          </div>
+        ) : (
+          filtered.map(market => (
+            <MarketCard key={market.id} market={market} onBet={handleBet} />
+          ))
+        )}
 
       </div>
     </div>
