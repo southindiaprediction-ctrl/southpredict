@@ -217,7 +217,10 @@ function App() {
       market_id: marketId,
       choice,
       amount,
-      user_session: user?.id || Math.random().toString(36).substr(2, 9)
+      user_session: user?.id || Math.random().toString(36).substr(2, 9),
+      user_id: user?.id || null,
+      user_name: user?.user_metadata?.full_name || 'Anonymous',
+      user_avatar: user?.user_metadata?.avatar_url || null
     })
     const market = markets.find(m => m.id === marketId)
     const impact = Math.min(3, amount / 100)
@@ -265,29 +268,30 @@ function App() {
                 <p style={{ color: "#555", fontSize: "11px", marginTop: "2px" }}>Prediction markets for South India</p>
               </div>
             </div>
-            {user ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <img
-                  src={user.user_metadata?.avatar_url}
-                  style={{ width: "28px", height: "28px", borderRadius: "50%" }}
-                />
-                <button onClick={handleLogout} style={{
-                  background: "transparent", border: "1px solid #333",
-                  color: "#888", padding: "5px 10px", borderRadius: "8px",
-                  cursor: "pointer", fontSize: "11px"
-                }}>Sign out</button>
-              </div>
-            ) : (
-              <button onClick={handleGoogleLogin} style={{
-                background: "white", border: "none",
-                color: "#0f0f23", padding: "7px 14px",
-                borderRadius: "20px", cursor: "pointer",
-                fontSize: "12px", fontWeight: "700",
-                display: "flex", alignItems: "center", gap: "6px"
-              }}>
-                Sign in with Google
-              </button>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <a href="/leaderboard" style={{
+                color: "#ffd700", fontSize: "12px", textDecoration: "none",
+                fontWeight: "600", display: "flex", alignItems: "center", gap: "4px"
+              }}>🏆 Leaderboard</a>
+              {user ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <img src={user.user_metadata?.avatar_url}
+                    style={{ width: "28px", height: "28px", borderRadius: "50%" }} />
+                  <button onClick={handleLogout} style={{
+                    background: "transparent", border: "1px solid #333",
+                    color: "#888", padding: "5px 10px", borderRadius: "8px",
+                    cursor: "pointer", fontSize: "11px"
+                  }}>Sign out</button>
+                </div>
+              ) : (
+                <button onClick={handleGoogleLogin} style={{
+                  background: "white", border: "none",
+                  color: "#0f0f23", padding: "7px 14px",
+                  borderRadius: "20px", cursor: "pointer",
+                  fontSize: "12px", fontWeight: "700"
+                }}>Sign in</button>
+              )}
+            </div>
           </div>
 
           <div style={{
