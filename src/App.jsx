@@ -23,13 +23,17 @@ function formatVolume(amount) {
   return `₹${amount}`
 }
 
-function MarketCard({ market, onBet }) {
+function MarketCard({ market, onBet, user }) {
   const [voted, setVoted] = useState(null)
   const [betAmount, setBetAmount] = useState(100)
   const [showConfirm, setShowConfirm] = useState(null)
   const [animating, setAnimating] = useState(false)
 
   function handleVote(choice) {
+    if (!user) {
+      alert('Please sign in to place a bet!')
+      return
+    }
     if (voted) return
     setShowConfirm(choice)
   }
@@ -43,7 +47,7 @@ function MarketCard({ market, onBet }) {
   }
 
   function shareOnWhatsApp() {
-    const text = `🏏 SouthPredict\n\n${market.question}\n\nYES ${market.yes_percent}% | NO ${100 - market.yes_percent}%\n\nBet now 👉 https://southpredict-app.vercel.app`
+    const text = `SouthPredict\n\n${market.question}\n\nYES ${market.yes_percent}% | NO ${100 - market.yes_percent}%\n\nBet now: https://southpredict-app.vercel.app`
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
 
@@ -63,21 +67,14 @@ function MarketCard({ market, onBet }) {
           padding: "4px 10px",
           borderRadius: "20px",
           fontSize: "11px",
-          fontWeight: "600",
-          letterSpacing: "0.3px"
+          fontWeight: "600"
         }}>
           {categoryEmojis[market.category]} {market.category}
         </span>
         <span style={{ color: "#666", fontSize: "11px" }}>Closes {market.closes}</span>
       </div>
 
-      <h3 style={{
-        color: "white",
-        marginBottom: "14px",
-        fontSize: "15px",
-        lineHeight: "1.5",
-        fontWeight: "600"
-      }}>
+      <h3 style={{ color: "white", marginBottom: "14px", fontSize: "15px", lineHeight: "1.5", fontWeight: "600" }}>
         {market.question}
       </h3>
 
@@ -126,26 +123,17 @@ function MarketCard({ market, onBet }) {
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <button onClick={confirmBet} style={{
-              flex: 1,
-              padding: "12px",
+              flex: 1, padding: "12px",
               background: showConfirm === 'yes' ? "#1a9e5c" : "#e05c2a",
-              border: "none",
-              color: "white",
-              borderRadius: "10px",
-              cursor: "pointer",
-              fontWeight: "700",
-              fontSize: "14px"
+              border: "none", color: "white", borderRadius: "10px",
+              cursor: "pointer", fontWeight: "700", fontSize: "14px"
             }}>
               Confirm ₹{betAmount}
             </button>
             <button onClick={() => setShowConfirm(null)} style={{
-              padding: "12px 16px",
-              background: "transparent",
-              border: "1px solid #333",
-              color: "#666",
-              borderRadius: "10px",
-              cursor: "pointer",
-              fontSize: "14px"
+              padding: "12px 16px", background: "transparent",
+              border: "1px solid #333", color: "#666",
+              borderRadius: "10px", cursor: "pointer", fontSize: "14px"
             }}>✕</button>
           </div>
         </div>
@@ -154,30 +142,24 @@ function MarketCard({ market, onBet }) {
       {!showConfirm && (
         <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
           <button onClick={() => handleVote('yes')} disabled={!!voted} style={{
-            flex: 1,
-            padding: "12px",
+            flex: 1, padding: "12px",
             background: voted === 'yes' ? "#1a9e5c" : "rgba(26,158,92,0.1)",
             border: `1.5px solid ${voted === 'yes' ? '#1a9e5c' : 'rgba(26,158,92,0.4)'}`,
             color: voted === 'yes' ? "white" : "#1a9e5c",
-            borderRadius: "10px",
-            cursor: voted ? "default" : "pointer",
-            fontWeight: "700",
-            fontSize: "14px",
+            borderRadius: "10px", cursor: voted ? "default" : "pointer",
+            fontWeight: "700", fontSize: "14px",
             opacity: voted && voted !== 'yes' ? 0.3 : 1,
             transition: "all 0.2s"
           }}>
             {voted === 'yes' ? '✓ YES' : 'YES'}
           </button>
           <button onClick={() => handleVote('no')} disabled={!!voted} style={{
-            flex: 1,
-            padding: "12px",
+            flex: 1, padding: "12px",
             background: voted === 'no' ? "#e05c2a" : "rgba(224,92,42,0.1)",
             border: `1.5px solid ${voted === 'no' ? '#e05c2a' : 'rgba(224,92,42,0.4)'}`,
             color: voted === 'no' ? "white" : "#e05c2a",
-            borderRadius: "10px",
-            cursor: voted ? "default" : "pointer",
-            fontWeight: "700",
-            fontSize: "14px",
+            borderRadius: "10px", cursor: voted ? "default" : "pointer",
+            fontWeight: "700", fontSize: "14px",
             opacity: voted && voted !== 'no' ? 0.3 : 1,
             transition: "all 0.2s"
           }}>
@@ -187,30 +169,14 @@ function MarketCard({ market, onBet }) {
       )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ color: "#555", fontSize: "12px" }}>
-          {formatVolume(market.volume)} volume
-        </span>
+        <span style={{ color: "#555", fontSize: "12px" }}>{formatVolume(market.volume)} volume</span>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          {voted && (
-            <span style={{ color: "#ffd700", fontSize: "12px" }}>
-              ✓ {voted.toUpperCase()}
-            </span>
-          )}
+          {voted && <span style={{ color: "#ffd700", fontSize: "12px" }}>✓ {voted.toUpperCase()}</span>}
           <button onClick={shareOnWhatsApp} style={{
-            background: "#25D366",
-            border: "none",
-            color: "white",
-            padding: "6px 12px",
-            borderRadius: "20px",
-            cursor: "pointer",
-            fontSize: "12px",
-            fontWeight: "700",
-            display: "flex",
-            alignItems: "center",
-            gap: "4px"
-          }}>
-            Share
-          </button>
+            background: "#25D366", border: "none", color: "white",
+            padding: "6px 12px", borderRadius: "20px", cursor: "pointer",
+            fontSize: "12px", fontWeight: "700"
+          }}>Share</button>
         </div>
       </div>
     </div>
@@ -221,11 +187,19 @@ function App() {
   const [markets, setMarkets] = useState([])
   const [filter, setFilter] = useState("All")
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(null)
 
   const categories = ["All", "Cricket", "Politics", "Cinema", "Infrastructure", "Health"]
 
   useEffect(() => {
     fetchMarkets()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   async function fetchMarkets() {
@@ -243,7 +217,7 @@ function App() {
       market_id: marketId,
       choice,
       amount,
-      user_session: Math.random().toString(36).substr(2, 9)
+      user_session: user?.id || Math.random().toString(36).substr(2, 9)
     })
     const market = markets.find(m => m.id === marketId)
     const impact = Math.min(3, amount / 100)
@@ -257,13 +231,25 @@ function App() {
     fetchMarkets()
   }
 
+  async function handleGoogleLogin() {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'https://southpredict-app.vercel.app'
+      }
+    })
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+  }
+
   const filtered = filter === "All" ? markets : markets.filter(m => m.category === filter)
 
   return (
     <div style={{ background: "#0f0f23", minHeight: "100vh" }}>
       <div style={{
-        position: "sticky",
-        top: 0,
+        position: "sticky", top: 0,
         background: "rgba(15,15,35,0.95)",
         backdropFilter: "blur(10px)",
         borderBottom: "1px solid #1a1a3a",
@@ -271,40 +257,52 @@ function App() {
         zIndex: 100
       }}>
         <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-            <span style={{ fontSize: "20px" }}>🏏</span>
-            <div>
-              <h1 style={{ color: "white", fontSize: "18px", fontWeight: "700", lineHeight: 1 }}>
-                SouthPredict
-              </h1>
-              <p style={{ color: "#555", fontSize: "11px", marginTop: "2px" }}>
-                Prediction markets for South India
-              </p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "20px" }}>🏏</span>
+              <div>
+                <h1 style={{ color: "white", fontSize: "18px", fontWeight: "700", lineHeight: 1 }}>SouthPredict</h1>
+                <p style={{ color: "#555", fontSize: "11px", marginTop: "2px" }}>Prediction markets for South India</p>
+              </div>
             </div>
+            {user ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <img
+                  src={user.user_metadata?.avatar_url}
+                  style={{ width: "28px", height: "28px", borderRadius: "50%" }}
+                />
+                <button onClick={handleLogout} style={{
+                  background: "transparent", border: "1px solid #333",
+                  color: "#888", padding: "5px 10px", borderRadius: "8px",
+                  cursor: "pointer", fontSize: "11px"
+                }}>Sign out</button>
+              </div>
+            ) : (
+              <button onClick={handleGoogleLogin} style={{
+                background: "white", border: "none",
+                color: "#0f0f23", padding: "7px 14px",
+                borderRadius: "20px", cursor: "pointer",
+                fontSize: "12px", fontWeight: "700",
+                display: "flex", alignItems: "center", gap: "6px"
+              }}>
+                Sign in with Google
+              </button>
+            )}
           </div>
 
           <div style={{
-            display: "flex",
-            gap: "6px",
-            overflowX: "auto",
-            paddingBottom: "12px",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none"
+            display: "flex", gap: "6px", overflowX: "auto",
+            paddingBottom: "12px", scrollbarWidth: "none"
           }}>
             {categories.map(cat => (
               <button key={cat} onClick={() => setFilter(cat)} style={{
-                padding: "6px 14px",
-                borderRadius: "20px",
-                border: "1px solid",
+                padding: "6px 14px", borderRadius: "20px", border: "1px solid",
                 borderColor: filter === cat ? "white" : "#2a2a4a",
                 background: filter === cat ? "white" : "transparent",
                 color: filter === cat ? "#0f0f23" : "#666",
-                cursor: "pointer",
-                fontSize: "12px",
+                cursor: "pointer", fontSize: "12px",
                 fontWeight: filter === cat ? "700" : "400",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-                transition: "all 0.2s"
+                whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.2s"
               }}>{cat}</button>
             ))}
           </div>
@@ -312,13 +310,35 @@ function App() {
       </div>
 
       <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px" }}>
+        {!user && (
+          <div style={{
+            background: "rgba(26,158,92,0.1)",
+            border: "1px solid rgba(26,158,92,0.3)",
+            borderRadius: "12px",
+            padding: "14px 16px",
+            marginBottom: "16px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
+            <p style={{ color: "#aaa", fontSize: "13px", margin: 0 }}>
+              Sign in to place bets and track your predictions
+            </p>
+            <button onClick={handleGoogleLogin} style={{
+              background: "#1a9e5c", border: "none", color: "white",
+              padding: "7px 14px", borderRadius: "20px", cursor: "pointer",
+              fontSize: "12px", fontWeight: "700", whiteSpace: "nowrap", marginLeft: "12px"
+            }}>Sign in</button>
+          </div>
+        )}
+
         {loading ? (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
             <div style={{ color: "#555", fontSize: "14px" }}>Loading markets...</div>
           </div>
         ) : (
           filtered.map(market => (
-            <MarketCard key={market.id} market={market} onBet={handleBet} />
+            <MarketCard key={market.id} market={market} onBet={handleBet} user={user} />
           ))
         )}
       </div>
