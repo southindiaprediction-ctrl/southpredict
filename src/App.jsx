@@ -19,9 +19,9 @@ const categoryEmojis = {
 }
 
 function formatVolume(amount) {
-  if (amount >= 100000) return String.fromCharCode(8377) + (amount / 100000).toFixed(1) + 'L'
-  if (amount >= 1000) return String.fromCharCode(8377) + (amount / 1000).toFixed(1) + 'K'
-  return String.fromCharCode(8377) + amount
+  if (amount >= 100000) return '₹' + (amount / 100000).toFixed(1) + 'L'
+  if (amount >= 1000) return '₹' + (amount / 1000).toFixed(1) + 'K'
+  return '₹' + amount
 }
 
 function timeAgo(dateStr) {
@@ -41,13 +41,13 @@ function NewsSidebar({ darkMode }) {
   const tabs = ['South India', 'Cricket', 'Cinema', 'Politics']
 
   const queries = {
-    'South India': 'Tamil Nadu OR Karnataka OR Kerala OR Telangana',
-    'Cricket': 'IPL 2026 cricket',
-    'Cinema': 'Kollywood Tamil Telugu film',
-    'Politics': 'Tamil Nadu politics DMK BJP TVK'
+    'South India': 'Tamil Nadu Karnataka Kerala Telangana',
+    'Cricket': 'IPL cricket India',
+    'Cinema': 'Tamil film Telugu cinema',
+    'Politics': 'Tamil Nadu DMK election'
   }
 
-  useEffect(() => {
+  useEffect(function() {
     fetchNews(activeTab)
   }, [activeTab])
 
@@ -57,9 +57,14 @@ function NewsSidebar({ darkMode }) {
       const query = encodeURIComponent(queries[tab])
       const res = await fetch('https://newsdata.io/api/1/news?apikey=pub_91dc0c56caca41de97305b08b0dc3c22&q=' + query + '&language=en&size=8')
       const data = await res.json()
-      if (data.results) setNews(data.results)
+      if (data.results) {
+        setNews(data.results)
+      } else {
+        setNews([])
+      }
     } catch (err) {
       console.error(err)
+      setNews([])
     }
     setLoading(false)
   }
@@ -74,9 +79,7 @@ function NewsSidebar({ darkMode }) {
       background: bg,
       border: '1px solid ' + border,
       borderRadius: '12px',
-      overflow: 'hidden',
-      position: 'sticky',
-      top: '120px'
+      overflow: 'hidden'
     }}>
       <div style={{ padding: '14px 16px 0', borderBottom: '1px solid ' + border }}>
         <h3 style={{ color: textPrimary, fontSize: '14px', fontWeight: '700', margin: '0 0 12px' }}>
@@ -108,7 +111,7 @@ function NewsSidebar({ darkMode }) {
           </div>
         ) : news.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '20px', color: textSecondary, fontSize: '13px' }}>
-            No news found
+            No news found — try another tab
           </div>
         ) : (
           news.map(function(item, i) {
@@ -343,7 +346,7 @@ function App() {
   const [filter, setFilter] = useState('All')
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
-  const [darkMode, setDarkMode] = useState(true)
+  const [darkMode, setDarkMode] = useState(false)
   const [search, setSearch] = useState('')
   const [isMobile, setIsMobile] = useState(window.innerWidth < 900)
 
@@ -356,7 +359,7 @@ function App() {
   const textSecondary = darkMode ? '#666' : '#888'
   const inputBg = darkMode ? '#1a1a2e' : '#ffffff'
 
-  useEffect(() => {
+  useEffect(function() {
     fetchMarkets()
     supabase.auth.getSession().then(function(result) {
       setUser(result.data.session ? result.data.session.user : null)
@@ -551,11 +554,19 @@ function App() {
               )
             })
           )}
+
+          {isMobile && (
+            <div style={{ marginTop: '24px' }}>
+              <NewsSidebar darkMode={darkMode} />
+            </div>
+          )}
         </div>
 
         {!isMobile && (
           <div style={{ width: '300px', flexShrink: 0 }}>
-            <NewsSidebar darkMode={darkMode} />
+            <div style={{ position: 'sticky', top: '120px' }}>
+              <NewsSidebar darkMode={darkMode} />
+            </div>
           </div>
         )}
       </div>
