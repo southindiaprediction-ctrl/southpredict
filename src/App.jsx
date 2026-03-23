@@ -33,13 +33,6 @@ function timeAgo(dateStr) {
   return Math.floor(hrs / 24) + 'd ago'
 }
 
-function calcPriceImpact(pool, amount) {
-  const newPool = pool + amount
-  const otherPool = pool
-  const total = newPool + otherPool
-  return Math.round((newPool / total) * 100)
-}
-
 function NewsSidebar({ darkMode }) {
   const [news, setNews] = useState([])
   const [loading, setLoading] = useState(true)
@@ -198,7 +191,7 @@ function MarketCard({ market, onBet, user, darkMode }) {
       alert('Please sign in to place a bet!')
       return
     }
-    if (voted) return
+    if (voted || market.resolved) return
     setShowConfirm(choice)
   }
 
@@ -218,12 +211,15 @@ function MarketCard({ market, onBet, user, darkMode }) {
   return (
     <div style={{
       background: bg,
-      border: '1px solid ' + border,
+      border: '1px solid ' + (market.resolved
+        ? (market.resolution === 'yes' ? 'rgba(0,192,135,0.4)' : 'rgba(255,77,77,0.4)')
+        : border),
       borderRadius: '12px',
       padding: '16px',
       marginBottom: '10px',
       boxShadow: darkMode ? 'none' : '0 1px 4px rgba(0,0,0,0.06)',
-      transition: 'all 0.2s ease'
+      transition: 'all 0.2s ease',
+      opacity: market.resolved ? 0.85 : 1
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
         <span style={{
@@ -236,12 +232,67 @@ function MarketCard({ market, onBet, user, darkMode }) {
         }}>
           {categoryEmojis[market.category]} {market.category}
         </span>
-        <span style={{ color: textSecondary, fontSize: '11px' }}>Closes {market.closes}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {market.resolved && (
+            <span style={{
+              background: market.resolution === 'yes' ? 'rgba(0,192,135,0.2)' : 'rgba(255,77,77,0.2)',
+              color: market.resolution === 'yes' ? '#00C087' : '#FF4D4D',
+              padding: '2px 8px', borderRadius: '20px',
+              fontSize: '10px', fontWeight: '700'
+            }}>
+              RESOLVED
+            </span>
+          )}
+          <span style={{ color: textSecondary, fontSize: '11px' }}>Closes {market.closes}</span>
+        </div>
       </div>
 
-      <h3 style={{ color: textPrimary, marginBottom: '16px', fontSize: '15px', lineHeight: '1.5', fontWeight: '600' }}>
+      <h3 style={{ color: textPrimary, marginBottom: '12px', fontSize: '15px', lineHeight: '1.5', fontWeight: '600' }}>
         {market.question}
       </h3>
+
+      {market.resolved && (
+        <div style={{
+          background: market.resolution === 'yes' ? 'rgba(0,192,135,0.12)' : 'rgba(255,77,77,0.12)',
+          border: '1px solid ' + (market.resolution === 'yes' ? 'rgba(0,192,135,0.4)' : 'rgba(255,77,77,0.4)'),
+          borderRadius: '8px',
+          padding: '10px 14px',
+          marginBottom: '14px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px' }}>
+              {market.resolution === 'yes' ? '✅' : '❌'}
+            </span>
+            <div>
+              <p style={{
+                color: market.resolution === 'yes' ? '#00C087' : '#FF4D4D',
+                fontWeight: '700', fontSize: '14px', margin: 0
+              }}>
+                {market.resolution === 'yes' ? 'YES Won' : 'NO Won'}
+              </p>
+              <p style={{ color: textSecondary, fontSize: '11px', margin: '2px 0 0' }}>
+                Market has been resolved
+              </p>
+            </div>
+          </div>
+          {voted && (
+            <div style={{ textAlign: 'right' }}>
+              <p style={{
+                color: voted === market.resolution ? '#00C087' : '#FF4D4D',
+                fontWeight: '700', fontSize: '14px', margin: 0
+              }}>
+                {voted === market.resolution ? '🎉 You Won!' : '😔 You Lost'}
+              </p>
+              <p style={{ color: textSecondary, fontSize: '11px', margin: '2px 0 0' }}>
+                You bet {voted.toUpperCase()}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
         <div style={{ flex: 1 }}>
@@ -252,7 +303,9 @@ function MarketCard({ market, onBet, user, darkMode }) {
           <div style={{ background: darkMode ? '#2a2a4a' : '#eeeeee', borderRadius: '4px', height: '4px', overflow: 'hidden' }}>
             <div style={{
               width: yesPrice + '%',
-              background: 'linear-gradient(90deg, #00C087, #00a876)',
+              background: market.resolved
+                ? (market.resolution === 'yes' ? '#00C087' : '#FF4D4D')
+                : 'linear-gradient(90deg, #00C087, #00a876)',
               height: '4px',
               borderRadius: '4px',
               transition: animating ? 'width 0.6s ease' : 'width 0.3s ease'
@@ -260,19 +313,30 @@ function MarketCard({ market, onBet, user, darkMode }) {
           </div>
         </div>
         <div style={{
-          background: darkMode ? 'rgba(0,192,135,0.15)' : 'rgba(0,192,135,0.1)',
-          border: '1px solid rgba(0,192,135,0.3)',
+          background: market.resolved
+            ? (market.resolution === 'yes' ? 'rgba(0,192,135,0.15)' : 'rgba(255,77,77,0.15)')
+            : (darkMode ? 'rgba(0,192,135,0.15)' : 'rgba(0,192,135,0.1)'),
+          border: '1px solid ' + (market.resolved
+            ? (market.resolution === 'yes' ? 'rgba(0,192,135,0.4)' : 'rgba(255,77,77,0.4)')
+            : 'rgba(0,192,135,0.3)'),
           borderRadius: '8px',
           padding: '6px 12px',
           textAlign: 'center',
           minWidth: '60px'
         }}>
-          <p style={{ color: '#00C087', fontSize: '16px', fontWeight: '800', margin: 0, lineHeight: 1 }}>{yesPrice}¢</p>
+          <p style={{
+            color: market.resolved
+              ? (market.resolution === 'yes' ? '#00C087' : '#FF4D4D')
+              : '#00C087',
+            fontSize: '16px', fontWeight: '800', margin: 0, lineHeight: 1
+          }}>
+            {market.resolved ? (market.resolution === 'yes' ? '100¢' : '0¢') : yesPrice + '¢'}
+          </p>
           <p style={{ color: textSecondary, fontSize: '10px', margin: '2px 0 0' }}>YES</p>
         </div>
       </div>
 
-      {showConfirm && (
+      {showConfirm && !market.resolved && (
         <div style={{
           background: inputBg,
           border: '1px solid ' + (showConfirm === 'yes' ? 'rgba(0,192,135,0.4)' : 'rgba(255,77,77,0.4)'),
@@ -284,9 +348,9 @@ function MarketCard({ market, onBet, user, darkMode }) {
             Buying <strong style={{ color: textPrimary }}>{showConfirm.toUpperCase()}</strong> shares
           </p>
           <p style={{ color: textSecondary, margin: '0 0 10px', fontSize: '11px' }}>
-            New price after bet: <strong style={{ color: showConfirm === 'yes' ? '#00C087' : '#FF4D4D' }}>
-              {getNewPrice(showConfirm, betAmount)}¢
-            </strong>
+            New price after bet: <strong style={{
+              color: showConfirm === 'yes' ? '#00C087' : '#FF4D4D'
+            }}>{getNewPrice(showConfirm, betAmount)}¢</strong>
           </p>
           <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
             {[10, 50, 100, 500].map(function(amt) {
@@ -319,7 +383,7 @@ function MarketCard({ market, onBet, user, darkMode }) {
         </div>
       )}
 
-      {!showConfirm && (
+      {!showConfirm && !market.resolved && (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
           <button onClick={function() { handleVote('yes') }} disabled={!!voted} style={{
             flex: 1, padding: '10px',
@@ -348,15 +412,33 @@ function MarketCard({ market, onBet, user, darkMode }) {
         </div>
       )}
 
+      {market.resolved && !voted && (
+        <div style={{
+          padding: '10px',
+          background: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+          borderRadius: '8px',
+          marginBottom: '12px',
+          textAlign: 'center'
+        }}>
+          <p style={{ color: textSecondary, fontSize: '12px', margin: 0 }}>
+            This market has been resolved — no more bets
+          </p>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ color: textSecondary, fontSize: '12px' }}>
             {formatVolume(market.volume)} vol.
           </span>
           <span style={{ color: textSecondary, fontSize: '12px' }}>
-            {'₹' + formatVolume(totalPool) + ' pool'}
+            {formatVolume(totalPool)} pool
           </span>
-          {voted && <span style={{ color: '#FFB347', fontSize: '12px', fontWeight: '600' }}>{voted.toUpperCase()}</span>}
+          {voted && !market.resolved && (
+            <span style={{ color: '#FFB347', fontSize: '12px', fontWeight: '600' }}>
+              {voted.toUpperCase()}
+            </span>
+          )}
         </div>
         <button onClick={shareOnWhatsApp} style={{
           background: 'transparent', border: '1px solid ' + border,
@@ -378,6 +460,7 @@ function App() {
   const [darkMode, setDarkMode] = useState(false)
   const [search, setSearch] = useState('')
   const [isMobile, setIsMobile] = useState(window.innerWidth < 900)
+  const [showResolved, setShowResolved] = useState(false)
 
   const categories = ['All', 'Cricket', 'Politics', 'Cinema', 'Infrastructure', 'Health']
 
@@ -421,23 +504,19 @@ function App() {
       user_name: user && user.user_metadata ? user.user_metadata.full_name : 'Anonymous',
       user_avatar: user && user.user_metadata ? user.user_metadata.avatar_url : null
     })
-
     const market = markets.find(function(m) { return m.id === marketId })
     const yesPool = market.yes_pool || (market.yes_percent * 100)
     const noPool = market.no_pool || ((100 - market.yes_percent) * 100)
-
     const newYesPool = choice === 'yes' ? yesPool + amount : yesPool
     const newNoPool = choice === 'no' ? noPool + amount : noPool
     const totalPool = newYesPool + newNoPool
     const newYesPercent = Math.round((newYesPool / totalPool) * 100)
-
     await supabase.from('markets').update({
       yes_pool: newYesPool,
       no_pool: newNoPool,
       yes_percent: newYesPercent,
       volume: market.volume + amount
     }).eq('id', marketId)
-
     fetchMarkets()
   }
 
@@ -452,7 +531,14 @@ function App() {
     await supabase.auth.signOut()
   }
 
-  const filtered = markets
+  const activeMarkets = markets.filter(function(m) { return !m.resolved })
+  const resolvedMarkets = markets.filter(function(m) { return m.resolved })
+
+  const filtered = activeMarkets
+    .filter(function(m) { return filter === 'All' || m.category === filter })
+    .filter(function(m) { return m.question.toLowerCase().includes(search.toLowerCase()) })
+
+  const filteredResolved = resolvedMarkets
     .filter(function(m) { return filter === 'All' || m.category === filter })
     .filter(function(m) { return m.question.toLowerCase().includes(search.toLowerCase()) })
 
@@ -477,11 +563,9 @@ function App() {
               <button onClick={function() { setDarkMode(!darkMode) }} style={{
                 background: darkMode ? '#1a1a2e' : '#e8e8e8',
                 border: '1px solid ' + border,
-                color: textPrimary,
-                width: '32px', height: '32px',
-                borderRadius: '8px', cursor: 'pointer',
-                fontSize: '14px', display: 'flex',
-                alignItems: 'center', justifyContent: 'center'
+                color: textPrimary, width: '32px', height: '32px',
+                borderRadius: '8px', cursor: 'pointer', fontSize: '14px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}>
                 {darkMode ? '☀️' : '🌙'}
               </button>
@@ -499,9 +583,8 @@ function App() {
                 </div>
               ) : (
                 <button onClick={handleGoogleLogin} style={{
-                  background: '#00C087', border: 'none',
-                  color: 'white', padding: '7px 14px',
-                  borderRadius: '8px', cursor: 'pointer',
+                  background: '#00C087', border: 'none', color: 'white',
+                  padding: '7px 14px', borderRadius: '8px', cursor: 'pointer',
                   fontSize: '12px', fontWeight: '700'
                 }}>Sign in</button>
               )}
@@ -572,24 +655,50 @@ function App() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <p style={{ color: textSecondary, fontSize: '12px', margin: 0 }}>{filtered.length} markets</p>
-            <p style={{ color: textSecondary, fontSize: '12px', margin: 0 }}>Sorted by volume</p>
+            <p style={{ color: textSecondary, fontSize: '12px', margin: 0 }}>
+              {filtered.length} active markets
+            </p>
+            <button onClick={function() { setShowResolved(!showResolved) }} style={{
+              background: 'transparent', border: '1px solid ' + border,
+              color: textSecondary, padding: '4px 10px', borderRadius: '6px',
+              cursor: 'pointer', fontSize: '11px'
+            }}>
+              {showResolved ? 'Hide Resolved' : 'Show Resolved (' + resolvedMarkets.length + ')'}
+            </button>
           </div>
 
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px 0' }}>
               <div style={{ color: textSecondary, fontSize: '14px' }}>Loading markets...</div>
             </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 0' }}>
-              <p style={{ color: textSecondary, fontSize: '14px' }}>No markets found</p>
-            </div>
           ) : (
-            filtered.map(function(market) {
-              return (
-                <MarketCard key={market.id} market={market} onBet={handleBet} user={user} darkMode={darkMode} />
-              )
-            })
+            <>
+              {filtered.map(function(market) {
+                return (
+                  <MarketCard key={market.id} market={market} onBet={handleBet} user={user} darkMode={darkMode} />
+                )
+              })}
+
+              {showResolved && filteredResolved.length > 0 && (
+                <div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    margin: '20px 0 12px'
+                  }}>
+                    <div style={{ flex: 1, height: '1px', background: border }} />
+                    <span style={{ color: textSecondary, fontSize: '12px', whiteSpace: 'nowrap' }}>
+                      Resolved Markets
+                    </span>
+                    <div style={{ flex: 1, height: '1px', background: border }} />
+                  </div>
+                  {filteredResolved.map(function(market) {
+                    return (
+                      <MarketCard key={market.id} market={market} onBet={handleBet} user={user} darkMode={darkMode} />
+                    )
+                  })}
+                </div>
+              )}
+            </>
           )}
 
           {isMobile && (
