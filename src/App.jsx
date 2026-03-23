@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
+import WalletButton from './WalletButton'
 
 const categoryColors = {
   Cricket: "#1a9e5c",
@@ -269,10 +270,11 @@ function App() {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <WalletButton />
               <a href="/leaderboard" style={{
                 color: "#ffd700", fontSize: "12px", textDecoration: "none",
                 fontWeight: "600", display: "flex", alignItems: "center", gap: "4px"
-              }}>🏆 Leaderboard</a>
+              }}>🏆</a>
               {user ? (
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <img src={user.user_metadata?.avatar_url}
