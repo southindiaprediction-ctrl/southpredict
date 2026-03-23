@@ -33,6 +33,13 @@ function timeAgo(dateStr) {
   return Math.floor(hrs / 24) + 'd ago'
 }
 
+function calcPriceImpact(pool, amount) {
+  const newPool = pool + amount
+  const otherPool = pool
+  const total = newPool + otherPool
+  return Math.round((newPool / total) * 100)
+}
+
 function NewsSidebar({ darkMode }) {
   const [news, setNews] = useState([])
   const [loading, setLoading] = useState(true)
@@ -172,6 +179,20 @@ function MarketCard({ market, onBet, user, darkMode }) {
   const textSecondary = darkMode ? '#888' : '#666'
   const inputBg = darkMode ? '#0f0f23' : '#f5f5f5'
 
+  const yesPool = market.yes_pool || (market.yes_percent * 100)
+  const noPool = market.no_pool || ((100 - market.yes_percent) * 100)
+  const totalPool = yesPool + noPool
+  const yesPrice = Math.round((yesPool / totalPool) * 100)
+  const noPrice = 100 - yesPrice
+
+  function getNewPrice(choice, amount) {
+    const newYesPool = choice === 'yes' ? yesPool + amount : yesPool
+    const newNoPool = choice === 'no' ? noPool + amount : noPool
+    const newTotal = newYesPool + newNoPool
+    const newYes = Math.round((newYesPool / newTotal) * 100)
+    return choice === 'yes' ? newYes : (100 - newYes)
+  }
+
   function handleVote(choice) {
     if (!user) {
       alert('Please sign in to place a bet!')
@@ -190,7 +211,7 @@ function MarketCard({ market, onBet, user, darkMode }) {
   }
 
   function shareOnWhatsApp() {
-    const text = 'SouthPredict\n\n' + market.question + '\n\nYES ' + market.yes_percent + '% | NO ' + (100 - market.yes_percent) + '%\n\nBet now: https://southpredict-app.vercel.app'
+    const text = 'SouthPredict\n\n' + market.question + '\n\nYES ' + yesPrice + '% | NO ' + noPrice + '%\n\nBet now: https://southpredict-app.vercel.app'
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank')
   }
 
@@ -225,12 +246,12 @@ function MarketCard({ market, onBet, user, darkMode }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-            <span style={{ color: '#00C087', fontWeight: '700', fontSize: '13px' }}>Yes {market.yes_percent}%</span>
-            <span style={{ color: '#FF4D4D', fontWeight: '700', fontSize: '13px' }}>No {100 - market.yes_percent}%</span>
+            <span style={{ color: '#00C087', fontWeight: '700', fontSize: '13px' }}>Yes {yesPrice}%</span>
+            <span style={{ color: '#FF4D4D', fontWeight: '700', fontSize: '13px' }}>No {noPrice}%</span>
           </div>
           <div style={{ background: darkMode ? '#2a2a4a' : '#eeeeee', borderRadius: '4px', height: '4px', overflow: 'hidden' }}>
             <div style={{
-              width: market.yes_percent + '%',
+              width: yesPrice + '%',
               background: 'linear-gradient(90deg, #00C087, #00a876)',
               height: '4px',
               borderRadius: '4px',
@@ -246,7 +267,7 @@ function MarketCard({ market, onBet, user, darkMode }) {
           textAlign: 'center',
           minWidth: '60px'
         }}>
-          <p style={{ color: '#00C087', fontSize: '16px', fontWeight: '800', margin: 0, lineHeight: 1 }}>{market.yes_percent}c</p>
+          <p style={{ color: '#00C087', fontSize: '16px', fontWeight: '800', margin: 0, lineHeight: 1 }}>{yesPrice}¢</p>
           <p style={{ color: textSecondary, fontSize: '10px', margin: '2px 0 0' }}>YES</p>
         </div>
       </div>
@@ -259,8 +280,13 @@ function MarketCard({ market, onBet, user, darkMode }) {
           padding: '14px',
           marginBottom: '12px'
         }}>
-          <p style={{ color: textSecondary, margin: '0 0 10px', fontSize: '12px' }}>
+          <p style={{ color: textSecondary, margin: '0 0 4px', fontSize: '12px' }}>
             Buying <strong style={{ color: textPrimary }}>{showConfirm.toUpperCase()}</strong> shares
+          </p>
+          <p style={{ color: textSecondary, margin: '0 0 10px', fontSize: '11px' }}>
+            New price after bet: <strong style={{ color: showConfirm === 'yes' ? '#00C087' : '#FF4D4D' }}>
+              {getNewPrice(showConfirm, betAmount)}¢
+            </strong>
           </p>
           <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
             {[10, 50, 100, 500].map(function(amt) {
@@ -327,6 +353,9 @@ function MarketCard({ market, onBet, user, darkMode }) {
           <span style={{ color: textSecondary, fontSize: '12px' }}>
             {formatVolume(market.volume)} vol.
           </span>
+          <span style={{ color: textSecondary, fontSize: '12px' }}>
+            {'₹' + formatVolume(totalPool) + ' pool'}
+          </span>
           {voted && <span style={{ color: '#FFB347', fontSize: '12px', fontWeight: '600' }}>{voted.toUpperCase()}</span>}
         </div>
         <button onClick={shareOnWhatsApp} style={{
@@ -392,15 +421,23 @@ function App() {
       user_name: user && user.user_metadata ? user.user_metadata.full_name : 'Anonymous',
       user_avatar: user && user.user_metadata ? user.user_metadata.avatar_url : null
     })
+
     const market = markets.find(function(m) { return m.id === marketId })
-    const impact = Math.min(3, amount / 100)
-    const newYes = choice === 'yes'
-      ? Math.min(97, market.yes_percent + impact)
-      : Math.max(3, market.yes_percent - impact)
+    const yesPool = market.yes_pool || (market.yes_percent * 100)
+    const noPool = market.no_pool || ((100 - market.yes_percent) * 100)
+
+    const newYesPool = choice === 'yes' ? yesPool + amount : yesPool
+    const newNoPool = choice === 'no' ? noPool + amount : noPool
+    const totalPool = newYesPool + newNoPool
+    const newYesPercent = Math.round((newYesPool / totalPool) * 100)
+
     await supabase.from('markets').update({
-      yes_percent: Math.round(newYes),
+      yes_pool: newYesPool,
+      no_pool: newNoPool,
+      yes_percent: newYesPercent,
       volume: market.volume + amount
     }).eq('id', marketId)
+
     fetchMarkets()
   }
 
