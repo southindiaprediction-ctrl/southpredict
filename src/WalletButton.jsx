@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { ethers } from 'ethers'
 import { connectWallet, getUSDCBalance } from './wallet'
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from './contractABI'
 
-function WalletButton() {
+function WalletButton({ onWalletConnect }) {
   const [address, setAddress] = useState(null)
   const [balance, setBalance] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -14,6 +16,7 @@ function WalletButton() {
         setAddress(wallet.address)
         const bal = await getUSDCBalance(wallet.address)
         setBalance(parseFloat(bal).toFixed(2))
+        if (onWalletConnect) onWalletConnect(wallet)
       }
     } catch (err) {
       console.error(err)
