@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState, useMemo } from 'react'
 
 const TIMEFRAMES = [
   { label: '5M', minutes: 5 },
@@ -11,160 +11,102 @@ const TIMEFRAMES = [
 function generateCandles(basePrice, count, minutesPerCandle) {
   const candles = []
   let price = basePrice || 100
-  const now = Math.floor(Date.now() / 1000)
-  const intervalSeconds = minutesPerCandle * 60
+  const now = Date.now()
+  const intervalMs = minutesPerCandle * 60 * 1000
   for (let i = count; i >= 0; i--) {
-    const time = now - (i * intervalSeconds)
+    const time = new Date(now - (i * intervalMs))
     const open = price
     const volatility = basePrice * 0.005
     const change = (Math.random() - 0.49) * volatility
     const close = Math.max(open * 0.97, open + change)
     const high = Math.max(open, close) + Math.random() * volatility * 0.3
     const low = Math.min(open, close) - Math.random() * volatility * 0.3
-    candles.push({
-      time,
-      open: parseFloat(open.toFixed(2)),
-      high: parseFloat(high.toFixed(2)),
-      low: parseFloat(low.toFixed(2)),
-      close: parseFloat(close.toFixed(2))
-    })
+    candles.push({ time, open, high, low, close })
     price = close
   }
   return candles
 }
 
+function formatTime(date, minutes) {
+  if (minutes >= 1440) return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
+  return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function formatPrice(price) {
+  if (price >= 1000) return '$' + (price / 1000).toFixed(1) + 'k'
+  if (price >= 1) return '$' + price.toFixed(2)
+  return '$' + price.toFixed(4)
+}
+
 function CryptoChart({ darkMode, basePrice, symbol, color }) {
-  const containerRef = useRef(null)
-  const chartInstanceRef = useRef(null)
   const [selectedTF, setSelectedTF] = useState(TIMEFRAMES[2])
-  const [currentPrice, setCurrentPrice] = useState(basePrice)
-  const [status, setStatus] = useState('loading')
+  const [hoveredCandle, setHoveredCandle] = useState(null)
 
   const border = darkMode ? '#2a2a4a' : '#e8e8e8'
   const textSecondary = darkMode ? '#666' : '#aaa'
   const chartBg = darkMode ? '#1a1a2e' : '#ffffff'
+  const gridColor = darkMode ? '#1e1e3a' : '#f5f5f5'
+  const coinColor = color || '#F7931A'
 
-  useEffect(function() {
-    let cancelled = false
+  const candles = useMemo(function() {
+    const count = selectedTF.minutes <= 15 ? 60 : selectedTF.minutes <= 60 ? 48 : selectedTF.minutes <= 240 ? 36 : 30
+    return generateCandles(basePrice || 100, count, selectedTF.minutes)
+  }, [selectedTF, basePrice])
 
-    async function buildChart() {
-      setStatus('loading')
-      if (!containerRef.current) return
+  const currentPrice = hoveredCandle ? hoveredCandle.close : candles[candles.length - 1]?.close
+  const firstPrice = candles[0]?.open
+  const priceChange = firstPrice ? ((currentPrice - firstPrice) / firstPrice * 100) : 0
+  const isUp = priceChange >= 0
 
-      try {
-        if (chartInstanceRef.current) {
-          chartInstanceRef.current.remove()
-          chartInstanceRef.current = null
-        }
-        containerRef.current.innerHTML = ''
+  const W = 520
+  const H = 180
+  const padL = 52
+  const padR = 8
+  const padT = 12
+  const padB = 28
+  const chartW = W - padL - padR
+  const chartH = H - padT - padB
 
-        const mod = await import('lightweight-charts')
-        const createChart = mod.createChart || mod.default?.createChart
-        if (!createChart) throw new Error('createChart not found')
-        if (cancelled || !containerRef.current) return
+  const allHighs = candles.map(function(c) { return c.high })
+  const allLows = candles.map(function(c) { return c.low })
+  const minP = Math.min.apply(null, allLows) * 0.9995
+  const maxP = Math.max.apply(null, allHighs) * 1.0005
+  const priceRange = maxP - minP
 
-        const w = containerRef.current.clientWidth || 400
+  function toY(price) {
+    return padT + chartH - ((price - minP) / priceRange) * chartH
+  }
 
-        const chart = createChart(containerRef.current, {
-          width: w,
-          height: 200,
-          layout: {
-            background: { color: chartBg },
-            textColor: textSecondary,
-            fontSize: 10
-          },
-          grid: {
-            vertLines: { color: darkMode ? '#1e1e3a' : '#f0f0f0' },
-            horzLines: { color: darkMode ? '#1e1e3a' : '#f0f0f0' }
-          },
-          rightPriceScale: {
-            borderVisible: false,
-            textColor: textSecondary,
-            scaleMargins: { top: 0.1, bottom: 0.1 }
-          },
-          timeScale: {
-            borderVisible: false,
-            textColor: textSecondary,
-            timeVisible: true,
-            secondsVisible: false
-          },
-          handleScroll: false,
-          handleScale: false,
-          crosshair: { mode: 1 }
-        })
+  const candleWidth = Math.max(2, (chartW / candles.length) * 0.7)
+  const spacing = chartW / candles.length
 
-        chartInstanceRef.current = chart
+  const gridLines = 4
+  const gridPrices = []
+  for (let i = 0; i <= gridLines; i++) {
+    gridPrices.push(minP + (priceRange * i / gridLines))
+  }
 
-        const series = chart.addCandlestickSeries({
-          upColor: '#00C087',
-          downColor: '#FF4D4D',
-          borderUpColor: '#00C087',
-          borderDownColor: '#FF4D4D',
-          wickUpColor: '#00C087',
-          wickDownColor: '#FF4D4D'
-        })
-
-        const count = selectedTF.minutes <= 15 ? 80 : selectedTF.minutes <= 60 ? 60 : selectedTF.minutes <= 240 ? 42 : 30
-        const candles = generateCandles(basePrice || 100, count, selectedTF.minutes)
-        series.setData(candles)
-
-        const last = candles[candles.length - 1]
-        if (!cancelled) setCurrentPrice(last.close)
-
-        chart.timeScale().fitContent()
-
-        chart.subscribeCrosshairMove(function(param) {
-          if (!cancelled && param.seriesData) {
-            const d = param.seriesData.get(series)
-            if (d && d.close) setCurrentPrice(d.close)
-          }
-        })
-
-        if (!cancelled) setStatus('ready')
-
-      } catch (err) {
-        console.error('Chart error:', err)
-        if (!cancelled) setStatus('error')
-      }
-    }
-
-    buildChart()
-
-    return function() {
-      cancelled = true
-      if (chartInstanceRef.current) {
-        try { chartInstanceRef.current.remove() } catch (e) {}
-        chartInstanceRef.current = null
-      }
-    }
-  }, [selectedTF, darkMode, basePrice])
-
-  useEffect(function() {
-    function handleResize() {
-      if (chartInstanceRef.current && containerRef.current) {
-        chartInstanceRef.current.applyOptions({
-          width: containerRef.current.clientWidth
-        })
-      }
-    }
-    window.addEventListener('resize', handleResize)
-    return function() { window.removeEventListener('resize', handleResize) }
-  }, [])
+  const xLabels = []
+  const step = Math.floor(candles.length / 5)
+  for (let i = 0; i < candles.length; i += step) {
+    xLabels.push({ i, label: formatTime(candles[i].time, selectedTF.minutes) })
+  }
 
   return (
     <div style={{ marginTop: '8px', marginBottom: '12px' }}>
-      <div style={{
-        display: 'flex', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: '8px'
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ color: color || '#F7931A', fontSize: '13px', fontWeight: '700' }}>
+          <span style={{ color: coinColor, fontSize: '13px', fontWeight: '700' }}>
             {symbol}/USD
           </span>
-          <span style={{ color: color || '#F7931A', fontSize: '12px', fontWeight: '600' }}>
-            ${currentPrice
-              ? currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })
-              : '...'}
+          <span style={{ color: coinColor, fontSize: '12px', fontWeight: '600' }}>
+            {formatPrice(currentPrice || basePrice)}
+          </span>
+          <span style={{
+            color: isUp ? '#00C087' : '#FF4D4D',
+            fontSize: '11px', fontWeight: '600'
+          }}>
+            {isUp ? '▲' : '▼'} {Math.abs(priceChange).toFixed(2)}%
           </span>
         </div>
         <div style={{ display: 'flex', gap: '3px' }}>
@@ -172,9 +114,7 @@ function CryptoChart({ darkMode, basePrice, symbol, color }) {
             return (
               <button key={tf.label} onClick={function() { setSelectedTF(tf) }} style={{
                 padding: '3px 7px', borderRadius: '4px', border: 'none',
-                background: selectedTF.label === tf.label
-                  ? (color || '#F7931A')
-                  : (darkMode ? '#2a2a4a' : '#f0f0f0'),
+                background: selectedTF.label === tf.label ? coinColor : (darkMode ? '#2a2a4a' : '#f0f0f0'),
                 color: selectedTF.label === tf.label ? 'white' : textSecondary,
                 cursor: 'pointer', fontSize: '10px', fontWeight: '700',
                 transition: 'all 0.15s'
@@ -184,36 +124,103 @@ function CryptoChart({ darkMode, basePrice, symbol, color }) {
         </div>
       </div>
 
-      <div style={{ position: 'relative' }}>
-        {status === 'loading' && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: chartBg, borderRadius: '8px', zIndex: 1,
-            border: '1px solid ' + border
-          }}>
-            <span style={{ color: textSecondary, fontSize: '12px' }}>Loading chart...</span>
-          </div>
-        )}
-        {status === 'error' && (
-          <div style={{
-            height: '200px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: chartBg, borderRadius: '8px',
-            border: '1px solid ' + border
-          }}>
-            <span style={{ color: textSecondary, fontSize: '12px' }}>Chart unavailable</span>
-          </div>
-        )}
-        <div
-          ref={containerRef}
-          style={{
-            width: '100%', height: '200px',
-            borderRadius: '8px', overflow: 'hidden',
-            border: '1px solid ' + border,
-            visibility: status === 'error' ? 'hidden' : 'visible'
-          }}
-        />
+      {hoveredCandle && (
+        <div style={{
+          display: 'flex', gap: '12px', marginBottom: '6px',
+          fontSize: '10px', color: textSecondary
+        }}>
+          <span>O <strong style={{ color: hoveredCandle.open >= hoveredCandle.close ? '#FF4D4D' : '#00C087' }}>{formatPrice(hoveredCandle.open)}</strong></span>
+          <span>H <strong style={{ color: '#00C087' }}>{formatPrice(hoveredCandle.high)}</strong></span>
+          <span>L <strong style={{ color: '#FF4D4D' }}>{formatPrice(hoveredCandle.low)}</strong></span>
+          <span>C <strong style={{ color: hoveredCandle.close >= hoveredCandle.open ? '#00C087' : '#FF4D4D' }}>{formatPrice(hoveredCandle.close)}</strong></span>
+        </div>
+      )}
+
+      <div style={{
+        background: chartBg, border: '1px solid ' + border,
+        borderRadius: '8px', overflow: 'hidden'
+      }}>
+        <svg
+          viewBox={'0 0 ' + W + ' ' + H}
+          style={{ width: '100%', height: 'auto', display: 'block' }}
+          onMouseLeave={function() { setHoveredCandle(null) }}
+        >
+          {gridPrices.map(function(p, i) {
+            const y = toY(p)
+            return (
+              <g key={i}>
+                <line x1={padL} y1={y} x2={W - padR} y2={y}
+                  stroke={gridColor} strokeWidth="1" />
+                <text x={padL - 4} y={y + 3} textAnchor="end"
+                  fontSize="8" fill={textSecondary}>
+                  {formatPrice(p)}
+                </text>
+              </g>
+            )
+          })}
+
+          {xLabels.map(function(xl) {
+            const x = padL + (xl.i + 0.5) * spacing
+            return (
+              <text key={xl.i} x={x} y={H - 6} textAnchor="middle"
+                fontSize="7.5" fill={textSecondary}>
+                {xl.label}
+              </text>
+            )
+          })}
+
+          {candles.map(function(c, i) {
+            const x = padL + (i + 0.5) * spacing
+            const isGreen = c.close >= c.open
+            const candleColor = isGreen ? '#00C087' : '#FF4D4D'
+            const bodyTop = toY(Math.max(c.open, c.close))
+            const bodyBot = toY(Math.min(c.open, c.close))
+            const bodyH = Math.max(1, bodyBot - bodyTop)
+            const wickTop = toY(c.high)
+            const wickBot = toY(c.low)
+            const isHovered = hoveredCandle === c
+
+            return (
+              <g key={i}
+                onMouseEnter={function() { setHoveredCandle(c) }}
+                style={{ cursor: 'crosshair' }}
+              >
+                {isHovered && (
+                  <rect
+                    x={x - spacing / 2} y={padT}
+                    width={spacing} height={chartH}
+                    fill={coinColor} fillOpacity="0.06"
+                  />
+                )}
+                <line
+                  x1={x} y1={wickTop} x2={x} y2={wickBot}
+                  stroke={candleColor} strokeWidth="1"
+                />
+                <rect
+                  x={x - candleWidth / 2} y={bodyTop}
+                  width={candleWidth} height={bodyH}
+                  fill={candleColor}
+                  fillOpacity={isGreen ? 1 : 1}
+                  rx="0.5"
+                />
+              </g>
+            )
+          })}
+
+          {hoveredCandle && (function() {
+            const idx = candles.indexOf(hoveredCandle)
+            const x = padL + (idx + 0.5) * spacing
+            const y = toY(hoveredCandle.close)
+            return (
+              <g>
+                <line x1={x} y1={padT} x2={x} y2={H - padB}
+                  stroke={coinColor} strokeWidth="1" strokeDasharray="3,2" opacity="0.5" />
+                <line x1={padL} y1={y} x2={W - padR} y2={y}
+                  stroke={coinColor} strokeWidth="1" strokeDasharray="3,2" opacity="0.5" />
+              </g>
+            )
+          })()}
+        </svg>
       </div>
     </div>
   )
