@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import WalletButton from './WalletButton'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import CryptoChart from './CryptoChart'
 
 const categoryColors = {
   Cricket: "#00C2FF",
@@ -21,6 +22,28 @@ const categoryEmojis = {
   Health: "🏥",
   Weather: "🌤️",
   Crypto: "₿"
+}
+
+const cryptoBasePrice = {
+  'BTC': 70000,
+  'ETH': 2100,
+  'SOL': 90,
+  'POL': 0.09
+}
+
+const cryptoColor = {
+  'BTC': '#F7931A',
+  'ETH': '#627EEA',
+  'SOL': '#9945FF',
+  'POL': '#8247E5'
+}
+
+function getCryptoSymbol(question) {
+  if (question.includes('BTC') || question.toLowerCase().includes('bitcoin')) return 'BTC'
+  if (question.includes('ETH') || question.toLowerCase().includes('ethereum')) return 'ETH'
+  if (question.includes('SOL') || question.toLowerCase().includes('solana')) return 'SOL'
+  if (question.includes('POL') || question.toLowerCase().includes('polygon') || question.toLowerCase().includes('matic')) return 'POL'
+  return 'BTC'
 }
 
 function formatVolume(amount) {
@@ -55,97 +78,6 @@ function generateChartData(yesPercent) {
   } catch (e) { return [{ t: 0, v: 50 }] }
 }
 
-function CryptoTicker({ darkMode }) {
-  const [prices, setPrices] = useState(null)
-  const [error, setError] = useState(false)
-
-  useEffect(function() {
-    fetchPrices()
-    const interval = setInterval(fetchPrices, 60000)
-    return function() { clearInterval(interval) }
-  }, [])
-
-  async function fetchPrices() {
-    try {
-      const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,matic-network&vs_currencies=usd&include_24hr_change=true')
-      if (!res.ok) throw new Error('API error')
-      const data = await res.json()
-      if (data && data.bitcoin) {
-        setPrices(data)
-        setError(false)
-      } else {
-        setError(true)
-      }
-    } catch (err) {
-      setError(true)
-    }
-  }
-
-  const border = darkMode ? '#2a2a4a' : '#e8e8e8'
-  const bg = darkMode ? '#1a1a2e' : '#ffffff'
-  const textPrimary = darkMode ? '#ffffff' : '#0d0d0d'
-  const textSecondary = darkMode ? '#888' : '#888'
-
-  const coins = [
-    { id: 'bitcoin', symbol: 'BTC', emoji: '₿' },
-    { id: 'ethereum', symbol: 'ETH', emoji: 'Ξ' },
-    { id: 'solana', symbol: 'SOL', emoji: '◎' },
-    { id: 'matic-network', symbol: 'POL', emoji: '⬡' }
-  ]
-
-  const fallback = [
-    { symbol: 'BTC', emoji: '₿', price: 'Loading...' },
-    { symbol: 'ETH', emoji: 'Ξ', price: 'Loading...' },
-    { symbol: 'SOL', emoji: '◎', price: 'Loading...' },
-    { symbol: 'POL', emoji: '⬡', price: 'Loading...' }
-  ]
-
-  return (
-    <div style={{
-      background: bg, border: '1px solid ' + border,
-      borderRadius: '12px', padding: '12px 16px', marginBottom: '16px',
-      display: 'flex', gap: '20px', overflowX: 'auto', scrollbarWidth: 'none',
-      alignItems: 'center'
-    }}>
-      <span style={{ color: textSecondary, fontSize: '11px', fontWeight: '600', flexShrink: 0 }}>LIVE</span>
-      {error || !prices ? (
-        fallback.map(function(coin) {
-          return (
-            <div key={coin.symbol} style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-              <span style={{ fontSize: '14px' }}>{coin.emoji}</span>
-              <div>
-                <p style={{ color: textPrimary, fontSize: '11px', fontWeight: '700', margin: 0 }}>{coin.symbol}</p>
-                <p style={{ color: textSecondary, fontSize: '10px', margin: 0 }}>{coin.price}</p>
-              </div>
-            </div>
-          )
-        })
-      ) : (
-        coins.map(function(coin) {
-          try {
-            const data = prices[coin.id]
-            if (!data) return null
-            const change = data.usd_24h_change || 0
-            const isUp = change >= 0
-            return (
-              <div key={coin.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                <span style={{ fontSize: '16px' }}>{coin.emoji}</span>
-                <div>
-                  <p style={{ color: textPrimary, fontSize: '12px', fontWeight: '700', margin: 0 }}>{coin.symbol}</p>
-                  <p style={{ color: textSecondary, fontSize: '11px', margin: 0 }}>${data.usd ? data.usd.toLocaleString() : 'N/A'}</p>
-                </div>
-                <span style={{ color: isUp ? '#00C087' : '#FF4D4D', fontSize: '11px', fontWeight: '600' }}>
-                  {isUp ? '▲' : '▼'} {Math.abs(change).toFixed(1)}%
-                </span>
-              </div>
-            )
-          } catch (e) { return null }
-        })
-      )}
-    </div>
-  )
-}
-
 function WeatherWidget({ darkMode }) {
   const [weather, setWeather] = useState(null)
   const [error, setError] = useState(false)
@@ -163,12 +95,8 @@ function WeatherWidget({ darkMode }) {
       const data = await res.json()
       if (data && data.current_condition && data.current_condition[0]) {
         setWeather(data)
-      } else {
-        setError(true)
-      }
-    } catch (err) {
-      setError(true)
-    }
+      } else { setError(true) }
+    } catch (err) { setError(true) }
   }
 
   const border = darkMode ? '#2a2a4a' : '#e8e8e8'
@@ -177,10 +105,7 @@ function WeatherWidget({ darkMode }) {
   const textSecondary = darkMode ? '#888' : '#888'
 
   return (
-    <div style={{
-      background: bg, border: '1px solid ' + border,
-      borderRadius: '12px', padding: '14px 16px', marginBottom: '16px'
-    }}>
+    <div style={{ background: bg, border: '1px solid ' + border, borderRadius: '12px', padding: '14px 16px', marginBottom: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
         <h3 style={{ color: textPrimary, fontSize: '13px', fontWeight: '700', margin: 0 }}>🌤️ Weather</h3>
         <div style={{ display: 'flex', gap: '3px' }}>
@@ -190,8 +115,7 @@ function WeatherWidget({ darkMode }) {
                 padding: '3px 7px', borderRadius: '6px', border: 'none',
                 background: activeCity === city ? '#00C087' : 'transparent',
                 color: activeCity === city ? 'white' : textSecondary,
-                cursor: 'pointer', fontSize: '10px',
-                fontWeight: activeCity === city ? '700' : '400'
+                cursor: 'pointer', fontSize: '10px', fontWeight: activeCity === city ? '700' : '400'
               }}>{city}</button>
             )
           })}
@@ -254,12 +178,8 @@ function NewsSidebar({ darkMode }) {
       const data = await res.json()
       if (data && Array.isArray(data.results)) {
         setNews(data.results)
-      } else {
-        setNews([])
-      }
-    } catch (err) {
-      setNews([])
-    }
+      } else { setNews([]) }
+    } catch (err) { setNews([]) }
     setLoading(false)
   }
 
@@ -290,9 +210,7 @@ function NewsSidebar({ darkMode }) {
         {loading ? (
           <div style={{ textAlign: 'center', padding: '20px', color: textSecondary, fontSize: '13px' }}>Loading...</div>
         ) : news.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '20px', color: textSecondary, fontSize: '13px' }}>
-            No news found — rate limit may apply
-          </div>
+          <div style={{ textAlign: 'center', padding: '20px', color: textSecondary, fontSize: '13px' }}>No news found</div>
         ) : (
           news.map(function(item, i) {
             return (
@@ -327,7 +245,7 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
   const [betAmount, setBetAmount] = useState(10)
   const [showConfirm, setShowConfirm] = useState(null)
   const [showChart, setShowChart] = useState(false)
-  const [chartData] = useState(function() { return generateChartData(market.yes_percent || 50) })
+  const [lineChartData] = useState(function() { return generateChartData(market.yes_percent || 50) })
   const [animating, setAnimating] = useState(false)
 
   const bg = darkMode ? '#1a1a2e' : '#ffffff'
@@ -335,6 +253,11 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
   const textPrimary = darkMode ? '#ffffff' : '#0d0d0d'
   const textSecondary = darkMode ? '#888' : '#666'
   const inputBg = darkMode ? '#0f0f23' : '#f5f5f5'
+
+  const isCrypto = market.category === 'Crypto'
+  const cryptoSymbol = isCrypto ? getCryptoSymbol(market.question) : null
+  const cryptoPrice = cryptoSymbol ? cryptoBasePrice[cryptoSymbol] : null
+  const cryptoCol = cryptoSymbol ? cryptoColor[cryptoSymbol] : '#F7931A'
 
   const yesPool = market.yes_pool || (market.yes_percent * 100) || 5000
   const noPool = market.no_pool || ((100 - market.yes_percent) * 100) || 5000
@@ -428,10 +351,19 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
         </div>
       )}
 
-      {showChart && (
+      {showChart && isCrypto && (
+        <CryptoChart
+          darkMode={darkMode}
+          basePrice={cryptoPrice}
+          symbol={cryptoSymbol}
+          color={cryptoCol}
+        />
+      )}
+
+      {showChart && !isCrypto && (
         <div style={{ marginBottom: '12px', height: '80px' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
+            <LineChart data={lineChartData}>
               <Line type="monotone" dataKey="v" stroke="#00C087" strokeWidth={2} dot={false} />
               <XAxis dataKey="t" hide={true} />
               <YAxis domain={[0, 100]} hide={true} />
@@ -566,9 +498,9 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <button onClick={function() { setShowChart(!showChart) }} style={{
-            background: showChart ? 'rgba(0,192,135,0.15)' : 'transparent',
-            border: '1px solid ' + (showChart ? '#00C087' : border),
-            color: showChart ? '#00C087' : textSecondary,
+            background: showChart ? (isCrypto ? cryptoCol + '22' : 'rgba(0,192,135,0.15)') : 'transparent',
+            border: '1px solid ' + (showChart ? (isCrypto ? cryptoCol : '#00C087') : border),
+            color: showChart ? (isCrypto ? cryptoCol : '#00C087') : textSecondary,
             padding: '3px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px'
           }}>📈</button>
           <button onClick={shareOnWhatsApp} style={{
@@ -764,8 +696,6 @@ function App() {
               }}>Sign in</button>
             </div>
           )}
-
-          <CryptoTicker darkMode={darkMode} />
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <p style={{ color: textSecondary, fontSize: '12px', margin: 0 }}>{filtered.length} markets</p>
