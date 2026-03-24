@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from './supabase'
 import WalletButton from './WalletButton'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -28,22 +28,47 @@ const cryptoBasePrice = {
   'BTC': 70000,
   'ETH': 2100,
   'SOL': 90,
-  'POL': 0.09
+  'BNB': 600,
+  'XRP': 2.5
 }
 
 const cryptoColor = {
   'BTC': '#F7931A',
   'ETH': '#627EEA',
   'SOL': '#9945FF',
-  'POL': '#8247E5'
+  'BNB': '#F3BA2F',
+  'XRP': '#00AAE4'
+}
+
+const cryptoEmoji = {
+  'BTC': '₿',
+  'ETH': 'Ξ',
+  'SOL': '◎',
+  'BNB': 'B',
+  'XRP': 'X'
 }
 
 function getCryptoSymbol(question) {
-  if (question.includes('BTC') || question.toLowerCase().includes('bitcoin')) return 'BTC'
-  if (question.includes('ETH') || question.toLowerCase().includes('ethereum')) return 'ETH'
-  if (question.includes('SOL') || question.toLowerCase().includes('solana')) return 'SOL'
-  if (question.includes('POL') || question.toLowerCase().includes('polygon') || question.toLowerCase().includes('matic')) return 'POL'
+  const q = question.toUpperCase()
+  if (q.includes('BTC') || q.includes('BITCOIN')) return 'BTC'
+  if (q.includes('ETH') || q.includes('ETHEREUM')) return 'ETH'
+  if (q.includes('SOL') || q.includes('SOLANA')) return 'SOL'
+  if (q.includes('BNB') || q.includes('BINANCE')) return 'BNB'
+  if (q.includes('XRP') || q.includes('RIPPLE')) return 'XRP'
   return 'BTC'
+}
+
+function getCryptoSubtype(question) {
+  const q = question.toLowerCase()
+  if (q.includes('5 min')) return '5min'
+  if (q.includes('15 min')) return '15min'
+  if (q.includes('1 hour') || q.includes('next 1 hour')) return '1h'
+  if (q.includes('4 hour') || q.includes('next 4 hour')) return '4h'
+  if (q.includes('today') || q.includes('1 day')) return '1d'
+  if (q.includes('week')) return '1w'
+  if (q.includes('exceed') || q.includes('above') || q.includes('below')) return 'price'
+  if (q.includes('hit')) return 'hit'
+  return 'price'
 }
 
 function formatVolume(amount) {
@@ -215,9 +240,7 @@ function NewsSidebar({ darkMode }) {
           news.map(function(item, i) {
             return (
               <div key={i} onClick={function() { window.open(item.link, '_blank') }} style={{
-                padding: '10px 0',
-                borderBottom: i < news.length - 1 ? '1px solid ' + border : 'none',
-                cursor: 'pointer'
+                padding: '10px 0', borderBottom: i < news.length - 1 ? '1px solid ' + border : 'none', cursor: 'pointer'
               }}>
                 {item.image_url && (
                   <img src={item.image_url}
@@ -240,6 +263,256 @@ function NewsSidebar({ darkMode }) {
   )
 }
 
+function CryptoSubFilters({ darkMode, activeSubFilter, setActiveSubFilter, border, textSecondary }) {
+  const filters = [
+    { id: 'all', label: 'All' },
+    { id: 'updown', label: 'Up / Down' },
+    { id: 'price', label: 'Above / Below' },
+    { id: 'hit', label: 'Hit Price' },
+    { id: '5min', label: '5 Min' },
+    { id: '15min', label: '15 Min' },
+    { id: '1h', label: '1 Hour' },
+    { id: '4h', label: '4 Hours' },
+    { id: '1d', label: '1 Day' },
+    { id: '1w', label: '1 Week' }
+  ]
+
+  return (
+    <div style={{
+      display: 'flex', gap: '6px', overflowX: 'auto',
+      scrollbarWidth: 'none', marginBottom: '16px',
+      paddingBottom: '4px'
+    }}>
+      {filters.map(function(f) {
+        const isActive = activeSubFilter === f.id
+        return (
+          <button key={f.id} onClick={function() { setActiveSubFilter(f.id) }} style={{
+            padding: '5px 12px', borderRadius: '20px', border: '1px solid',
+            borderColor: isActive ? '#F7931A' : border,
+            background: isActive ? 'rgba(247,147,26,0.15)' : 'transparent',
+            color: isActive ? '#F7931A' : textSecondary,
+            cursor: 'pointer', fontSize: '12px',
+            fontWeight: isActive ? '700' : '400',
+            whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.15s'
+          }}>{f.label}</button>
+        )
+      })}
+    </div>
+  )
+}
+
+function CoinFilter({ darkMode, activeCoin, setActiveCoin, border, textSecondary }) {
+  const coins = [
+    { id: 'all', label: 'All', emoji: '🔄' },
+    { id: 'BTC', label: 'BTC', emoji: '₿', color: '#F7931A' },
+    { id: 'ETH', label: 'ETH', emoji: 'Ξ', color: '#627EEA' },
+    { id: 'SOL', label: 'SOL', emoji: '◎', color: '#9945FF' },
+    { id: 'BNB', label: 'BNB', emoji: 'B', color: '#F3BA2F' },
+    { id: 'XRP', label: 'XRP', emoji: 'X', color: '#00AAE4' }
+  ]
+
+  return (
+    <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
+      {coins.map(function(coin) {
+        const isActive = activeCoin === coin.id
+        const col = coin.color || '#888'
+        return (
+          <button key={coin.id} onClick={function() { setActiveCoin(coin.id) }} style={{
+            padding: '5px 12px', borderRadius: '20px', border: '1px solid',
+            borderColor: isActive ? col : border,
+            background: isActive ? col + '22' : 'transparent',
+            color: isActive ? col : textSecondary,
+            cursor: 'pointer', fontSize: '12px',
+            fontWeight: isActive ? '700' : '400',
+            display: 'flex', alignItems: 'center', gap: '4px',
+            transition: 'all 0.15s', flexShrink: 0
+          }}>
+            <span>{coin.emoji}</span>
+            <span>{coin.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function UpDownCard({ market, onBet, user, darkMode }) {
+  const [voted, setVoted] = useState(null)
+  const [showConfirm, setShowConfirm] = useState(null)
+  const [betAmount, setBetAmount] = useState(10)
+  const [showChart, setShowChart] = useState(false)
+
+  const bg = darkMode ? '#1a1a2e' : '#ffffff'
+  const border = darkMode ? '#2a2a4a' : '#e8e8e8'
+  const textPrimary = darkMode ? '#ffffff' : '#0d0d0d'
+  const textSecondary = darkMode ? '#888' : '#666'
+  const inputBg = darkMode ? '#0f0f23' : '#f5f5f5'
+
+  const symbol = getCryptoSymbol(market.question)
+  const coinColor = cryptoColor[symbol] || '#F7931A'
+  const basePrice = cryptoBasePrice[symbol] || 100
+  const subtype = getCryptoSubtype(market.question)
+
+  const yesPool = market.yes_pool || 5000
+  const noPool = market.no_pool || 5000
+  const totalPool = yesPool + noPool
+  const upPercent = Math.round((yesPool / totalPool) * 100)
+  const downPercent = 100 - upPercent
+  const upMultiplier = (100 / Math.max(upPercent, 1)).toFixed(2)
+  const downMultiplier = (100 / Math.max(downPercent, 1)).toFixed(2)
+
+  const timeLabels = {
+    '5min': '5 Min', '15min': '15 Min', '1h': '1 Hour',
+    '4h': '4 Hours', '1d': '1 Day', '1w': '1 Week'
+  }
+
+  function handleVote(choice) {
+    if (!user) { alert('Please sign in!'); return }
+    if (voted || market.resolved) return
+    setShowConfirm(choice)
+  }
+
+  async function confirmBet() {
+    setVoted(showConfirm)
+    await onBet(market.id, showConfirm, betAmount)
+    setShowConfirm(null)
+  }
+
+  return (
+    <div style={{
+      background: bg, border: '1px solid ' + border,
+      borderRadius: '12px', padding: '14px',
+      boxShadow: darkMode ? 'none' : '0 1px 4px rgba(0,0,0,0.06)'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '32px', height: '32px', borderRadius: '8px',
+            background: coinColor + '22', border: '1px solid ' + coinColor + '44',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '14px', fontWeight: '800', color: coinColor
+          }}>
+            {cryptoEmoji[symbol]}
+          </div>
+          <div>
+            <p style={{ color: textPrimary, fontSize: '13px', fontWeight: '700', margin: 0 }}>
+              {symbol} {timeLabels[subtype] || ''} Up or Down
+            </p>
+            <p style={{ color: textSecondary, fontSize: '10px', margin: '2px 0 0' }}>
+              Closes {market.closes}
+            </p>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{
+            width: '48px', height: '48px', position: 'relative',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <svg viewBox="0 0 36 36" style={{ width: '48px', height: '48px', transform: 'rotate(-90deg)' }}>
+              <circle cx="18" cy="18" r="15" fill="none" stroke={darkMode ? '#2a2a4a' : '#f0f0f0'} strokeWidth="3" />
+              <circle cx="18" cy="18" r="15" fill="none" stroke="#00C087" strokeWidth="3"
+                strokeDasharray={upPercent * 0.942 + ' 100'} strokeLinecap="round" />
+            </svg>
+            <div style={{ position: 'absolute', textAlign: 'center' }}>
+              <p style={{ color: '#00C087', fontSize: '10px', fontWeight: '800', margin: 0, lineHeight: 1 }}>{upPercent}%</p>
+              <p style={{ color: textSecondary, fontSize: '8px', margin: 0 }}>Up</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showChart && (
+        <CryptoChart darkMode={darkMode} basePrice={basePrice} symbol={symbol} color={coinColor} />
+      )}
+
+      {showConfirm && (
+        <div style={{
+          background: inputBg,
+          border: '1px solid ' + (showConfirm === 'yes' ? 'rgba(0,192,135,0.4)' : 'rgba(255,77,77,0.4)'),
+          borderRadius: '10px', padding: '10px', marginBottom: '10px'
+        }}>
+          <p style={{ color: textSecondary, margin: '0 0 8px', fontSize: '11px' }}>
+            Betting {showConfirm === 'yes' ? '📈 UP' : '📉 DOWN'}
+          </p>
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+            {[10, 50, 100, 500].map(function(amt) {
+              return (
+                <button key={amt} onClick={function() { setBetAmount(amt) }} style={{
+                  flex: 1, padding: '5px 2px', borderRadius: '6px', border: '1px solid',
+                  borderColor: betAmount === amt ? (darkMode ? 'white' : '#0d0d0d') : border,
+                  background: betAmount === amt ? (darkMode ? 'white' : '#0d0d0d') : 'transparent',
+                  color: betAmount === amt ? (darkMode ? '#0d0d0d' : 'white') : textSecondary,
+                  cursor: 'pointer', fontSize: '11px', fontWeight: betAmount === amt ? '700' : '400'
+                }}>₹{amt}</button>
+              )
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={confirmBet} style={{
+              flex: 1, padding: '9px',
+              background: showConfirm === 'yes' ? '#00C087' : '#FF4D4D',
+              border: 'none', color: 'white', borderRadius: '8px',
+              cursor: 'pointer', fontWeight: '700', fontSize: '12px'
+            }}>
+              {showConfirm === 'yes' ? '📈 UP' : '📉 DOWN'} · ₹{betAmount}
+            </button>
+            <button onClick={function() { setShowConfirm(null) }} style={{
+              padding: '9px 12px', background: 'transparent',
+              border: '1px solid ' + border, color: textSecondary,
+              borderRadius: '8px', cursor: 'pointer', fontSize: '12px'
+            }}>X</button>
+          </div>
+        </div>
+      )}
+
+      {!showConfirm && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+          <button onClick={function() { handleVote('yes') }} disabled={!!voted} style={{
+            flex: 1, padding: '10px 6px',
+            background: voted === 'yes' ? '#00C087' : (darkMode ? 'rgba(0,192,135,0.1)' : 'rgba(0,192,135,0.08)'),
+            border: '1px solid ' + (voted === 'yes' ? '#00C087' : 'rgba(0,192,135,0.3)'),
+            color: voted === 'yes' ? 'white' : '#00C087',
+            borderRadius: '8px', cursor: voted ? 'default' : 'pointer',
+            fontWeight: '700', fontSize: '13px',
+            opacity: voted && voted !== 'yes' ? 0.3 : 1
+          }}>
+            {voted === 'yes' ? 'Bet Up ✓' : '📈 Up +₹' + Math.round(betAmount * parseFloat(upMultiplier))}
+          </button>
+          <button onClick={function() { handleVote('no') }} disabled={!!voted} style={{
+            flex: 1, padding: '10px 6px',
+            background: voted === 'no' ? '#FF4D4D' : (darkMode ? 'rgba(255,77,77,0.1)' : 'rgba(255,77,77,0.08)'),
+            border: '1px solid ' + (voted === 'no' ? '#FF4D4D' : 'rgba(255,77,77,0.3)'),
+            color: voted === 'no' ? 'white' : '#FF4D4D',
+            borderRadius: '8px', cursor: voted ? 'default' : 'pointer',
+            fontWeight: '700', fontSize: '13px',
+            opacity: voted && voted !== 'no' ? 0.3 : 1
+          }}>
+            {voted === 'no' ? 'Bet Down ✓' : '📉 Down +₹' + Math.round(betAmount * parseFloat(downMultiplier))}
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <span style={{ color: textSecondary, fontSize: '10px' }}>{formatVolume(market.volume)} vol.</span>
+          {!voted && (
+            <span style={{ color: '#00C087', fontSize: '10px' }}>Up {upMultiplier}x</span>
+          )}
+          {!voted && (
+            <span style={{ color: '#FF4D4D', fontSize: '10px' }}>Down {downMultiplier}x</span>
+          )}
+        </div>
+        <button onClick={function() { setShowChart(!showChart) }} style={{
+          background: showChart ? coinColor + '22' : 'transparent',
+          border: '1px solid ' + (showChart ? coinColor : border),
+          color: showChart ? coinColor : textSecondary,
+          padding: '3px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px'
+        }}>📈</button>
+      </div>
+    </div>
+  )
+}
+
 function MarketCard({ market, onBet, user, darkMode, isGrid }) {
   const [voted, setVoted] = useState(null)
   const [betAmount, setBetAmount] = useState(10)
@@ -257,7 +530,7 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
   const isCrypto = market.category === 'Crypto'
   const cryptoSymbol = isCrypto ? getCryptoSymbol(market.question) : null
   const cryptoPrice = cryptoSymbol ? cryptoBasePrice[cryptoSymbol] : null
-  const cryptoCol = cryptoSymbol ? cryptoColor[cryptoSymbol] : '#F7931A'
+  const cryptoCol = cryptoSymbol ? (cryptoColor[cryptoSymbol] || '#F7931A') : '#F7931A'
 
   const yesPool = market.yes_pool || (market.yes_percent * 100) || 5000
   const noPool = market.no_pool || ((100 - market.yes_percent) * 100) || 5000
@@ -304,7 +577,6 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
         : border),
       borderRadius: '12px', padding: '16px',
       boxShadow: darkMode ? 'none' : '0 1px 4px rgba(0,0,0,0.06)',
-      transition: 'all 0.2s ease',
       opacity: market.resolved ? 0.9 : 1,
       display: 'flex', flexDirection: 'column',
       marginBottom: isGrid ? '0' : '10px'
@@ -352,14 +624,8 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
       )}
 
       {showChart && isCrypto && (
-        <CryptoChart
-          darkMode={darkMode}
-          basePrice={cryptoPrice}
-          symbol={cryptoSymbol}
-          color={cryptoCol}
-        />
+        <CryptoChart darkMode={darkMode} basePrice={cryptoPrice} symbol={cryptoSymbol} color={cryptoCol} />
       )}
-
       {showChart && !isCrypto && (
         <div style={{ marginBottom: '12px', height: '80px' }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -367,14 +633,8 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
               <Line type="monotone" dataKey="v" stroke="#00C087" strokeWidth={2} dot={false} />
               <XAxis dataKey="t" hide={true} />
               <YAxis domain={[0, 100]} hide={true} />
-              <Tooltip
-                formatter={function(value) { return [value + '¢', 'YES Price'] }}
-                contentStyle={{
-                  background: darkMode ? '#1a1a2e' : '#fff',
-                  border: '1px solid ' + border,
-                  borderRadius: '6px', fontSize: '11px'
-                }}
-              />
+              <Tooltip formatter={function(v) { return [v + '¢', 'YES'] }}
+                contentStyle={{ background: darkMode ? '#1a1a2e' : '#fff', border: '1px solid ' + border, borderRadius: '6px', fontSize: '11px' }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -389,9 +649,7 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
           <div style={{ background: darkMode ? '#2a2a4a' : '#eeeeee', borderRadius: '4px', height: '3px', overflow: 'hidden' }}>
             <div style={{
               width: yesPrice + '%',
-              background: market.resolved
-                ? (market.resolution === 'yes' ? '#00C087' : '#FF4D4D')
-                : 'linear-gradient(90deg, #00C087, #00a876)',
+              background: market.resolved ? (market.resolution === 'yes' ? '#00C087' : '#FF4D4D') : 'linear-gradient(90deg, #00C087, #00a876)',
               height: '3px', borderRadius: '4px',
               transition: animating ? 'width 0.6s ease' : 'width 0.3s ease'
             }} />
@@ -462,7 +720,7 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
             color: voted === 'yes' ? 'white' : '#00C087',
             borderRadius: '8px', cursor: voted ? 'default' : 'pointer',
             fontWeight: '700', fontSize: '12px',
-            opacity: voted && voted !== 'yes' ? 0.3 : 1, transition: 'all 0.15s'
+            opacity: voted && voted !== 'yes' ? 0.3 : 1
           }}>
             {voted === 'yes' ? 'Bought Yes' : 'Buy Yes ' + yesMultiplier + 'x'}
           </button>
@@ -473,7 +731,7 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
             color: voted === 'no' ? 'white' : '#FF4D4D',
             borderRadius: '8px', cursor: voted ? 'default' : 'pointer',
             fontWeight: '700', fontSize: '12px',
-            opacity: voted && voted !== 'no' ? 0.3 : 1, transition: 'all 0.15s'
+            opacity: voted && voted !== 'no' ? 0.3 : 1
           }}>
             {voted === 'no' ? 'Bought No' : 'Buy No ' + noMultiplier + 'x'}
           </button>
@@ -517,6 +775,8 @@ function MarketCard({ market, onBet, user, darkMode, isGrid }) {
 function App() {
   const [markets, setMarkets] = useState([])
   const [filter, setFilter] = useState('All')
+  const [cryptoSubFilter, setCryptoSubFilter] = useState('all')
+  const [cryptoCoinFilter, setCryptoCoinFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
   const [darkMode, setDarkMode] = useState(false)
@@ -594,13 +854,39 @@ function App() {
   const activeMarkets = markets.filter(function(m) { return !m.resolved })
   const resolvedMarkets = markets.filter(function(m) { return m.resolved })
 
-  const filtered = activeMarkets
-    .filter(function(m) { return filter === 'All' || m.category === filter })
-    .filter(function(m) { return m.question.toLowerCase().includes(search.toLowerCase()) })
+  const filtered = useMemo(function() {
+    let result = activeMarkets
+      .filter(function(m) { return filter === 'All' || m.category === filter })
+      .filter(function(m) { return m.question.toLowerCase().includes(search.toLowerCase()) })
+
+    if (filter === 'Crypto') {
+      if (cryptoCoinFilter !== 'all') {
+        result = result.filter(function(m) {
+          return getCryptoSymbol(m.question) === cryptoCoinFilter
+        })
+      }
+      if (cryptoSubFilter !== 'all') {
+        result = result.filter(function(m) {
+          const sub = getCryptoSubtype(m.question)
+          const q = m.question.toLowerCase()
+          if (cryptoSubFilter === 'updown') return q.includes('up in the') || q.includes('up today') || q.includes('up this week')
+          if (cryptoSubFilter === 'price') return q.includes('exceed') || q.includes('above') || q.includes('below') || q.includes('dominance')
+          if (cryptoSubFilter === 'hit') return q.includes('hit')
+          return sub === cryptoSubFilter
+        })
+      }
+    }
+    return result
+  }, [activeMarkets, filter, search, cryptoSubFilter, cryptoCoinFilter])
 
   const filteredResolved = resolvedMarkets
     .filter(function(m) { return filter === 'All' || m.category === filter })
     .filter(function(m) { return m.question.toLowerCase().includes(search.toLowerCase()) })
+
+  function isUpDownMarket(market) {
+    const q = market.question.toLowerCase()
+    return q.includes('be up') || q.includes('up in the') || q.includes('up today') || q.includes('up this week')
+  }
 
   return (
     <div style={{ background: bg, minHeight: '100vh', transition: 'background 0.3s' }}>
@@ -654,10 +940,7 @@ function App() {
               <span style={{ color: textSecondary, marginRight: '8px', fontSize: '14px' }}>🔍</span>
               <input type="text" placeholder="Search markets..." value={search}
                 onChange={function(e) { setSearch(e.target.value) }}
-                style={{
-                  background: 'transparent', border: 'none',
-                  color: textPrimary, fontSize: '13px', outline: 'none', width: '100%'
-                }} />
+                style={{ background: 'transparent', border: 'none', color: textPrimary, fontSize: '13px', outline: 'none', width: '100%' }} />
             </div>
           </div>
 
@@ -697,6 +980,25 @@ function App() {
             </div>
           )}
 
+          {filter === 'Crypto' && (
+            <div>
+              <CryptoSubFilters
+                darkMode={darkMode}
+                activeSubFilter={cryptoSubFilter}
+                setActiveSubFilter={setCryptoSubFilter}
+                border={border}
+                textSecondary={textSecondary}
+              />
+              <CoinFilter
+                darkMode={darkMode}
+                activeCoin={cryptoCoinFilter}
+                setActiveCoin={setCryptoCoinFilter}
+                border={border}
+                textSecondary={textSecondary}
+              />
+            </div>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <p style={{ color: textSecondary, fontSize: '12px', margin: 0 }}>{filtered.length} markets</p>
             <button onClick={function() { setShowResolved(!showResolved) }} style={{
@@ -720,6 +1022,11 @@ function App() {
                 gap: '12px', marginBottom: '12px'
               }}>
                 {filtered.map(function(market) {
+                  if (filter === 'Crypto' && isUpDownMarket(market)) {
+                    return (
+                      <UpDownCard key={market.id} market={market} onBet={handleBet} user={user} darkMode={darkMode} />
+                    )
+                  }
                   return (
                     <MarketCard key={market.id} market={market} onBet={handleBet}
                       user={user} darkMode={darkMode} isGrid={!isMobile} />
