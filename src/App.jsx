@@ -807,9 +807,7 @@ function App() {
           XRP: data.ripple?.usd || defaultPrices.XRP
         })
       }
-    } catch (e) {
-      console.error('Price fetch failed', e)
-    }
+    } catch (e) { console.error('Price fetch failed', e) }
   }
 
   useEffect(function() {
@@ -1089,6 +1087,45 @@ function App() {
           </div>
         )}
       </div>
+
+      <footer style={{
+        borderTop: '1px solid ' + border,
+        marginTop: '40px',
+        padding: '28px 16px',
+        background: darkMode ? '#0a0a1a' : '#f0f0f0'
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <div style={{
+            display: 'flex', justifyContent: 'space-between',
+            alignItems: 'center', flexWrap: 'wrap', gap: '16px',
+            marginBottom: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '20px' }}>🏏</span>
+              <span style={{ color: textPrimary, fontSize: '16px', fontWeight: '800' }}>SouthPredict</span>
+            </div>
+            <div style={{ display: 'flex', gap: '20px' }}>
+              <span style={{ color: textSecondary, fontSize: '12px', cursor: 'pointer' }}>Terms of Service</span>
+              <span style={{ color: textSecondary, fontSize: '12px', cursor: 'pointer' }}>Privacy Policy</span>
+              <span style={{ color: textSecondary, fontSize: '12px', cursor: 'pointer' }}>Contact Us</span>
+              <a href="/admin" style={{ color: textSecondary, fontSize: '12px', textDecoration: 'none' }}>Admin</a>
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <p style={{ color: textSecondary, fontSize: '12px', margin: 0 }}>
+              © {new Date().getFullYear()} SouthPredict. All rights reserved.
+            </p>
+            <p style={{ color: textSecondary, fontSize: '11px', margin: 0, textAlign: 'right' }}>
+              For entertainment only · Play money · Not financial advice · Users must be 18+
+            </p>
+          </div>
+          <p style={{ color: darkMode ? '#444' : '#bbb', fontSize: '11px', margin: '10px 0 0', textAlign: 'center' }}>
+            SouthPredict is a prediction market platform for entertainment purposes only.
+            Not affiliated with any financial institution or regulatory body.
+            Predictions do not constitute financial, legal or investment advice.
+          </p>
+        </div>
+      </footer>
     </div>
   )
 }
