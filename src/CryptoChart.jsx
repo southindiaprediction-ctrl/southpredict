@@ -33,7 +33,15 @@ function formatTime(date, minutes) {
 }
 
 function formatPrice(price) {
-  if (price >= 1000) return '$' + (price / 1000).toFixed(1) + 'k'
+  if (!price) return '$0'
+  if (price >= 1000) return '$' + Math.round(price).toLocaleString()
+  if (price >= 1) return '$' + price.toFixed(2)
+  return '$' + price.toFixed(4)
+}
+
+function formatYAxis(price) {
+  if (!price) return '$0'
+  if (price >= 1000) return '$' + Math.round(price).toLocaleString()
   if (price >= 1) return '$' + price.toFixed(2)
   return '$' + price.toFixed(4)
 }
@@ -60,7 +68,7 @@ function CryptoChart({ darkMode, basePrice, symbol, color }) {
 
   const W = 520
   const H = 180
-  const padL = 52
+  const padL = 70
   const padR = 8
   const padT = 12
   const padB = 28
@@ -102,10 +110,7 @@ function CryptoChart({ darkMode, basePrice, symbol, color }) {
           <span style={{ color: coinColor, fontSize: '12px', fontWeight: '600' }}>
             {formatPrice(currentPrice || basePrice)}
           </span>
-          <span style={{
-            color: isUp ? '#00C087' : '#FF4D4D',
-            fontSize: '11px', fontWeight: '600'
-          }}>
+          <span style={{ color: isUp ? '#00C087' : '#FF4D4D', fontSize: '11px', fontWeight: '600' }}>
             {isUp ? '▲' : '▼'} {Math.abs(priceChange).toFixed(2)}%
           </span>
         </div>
@@ -125,21 +130,19 @@ function CryptoChart({ darkMode, basePrice, symbol, color }) {
       </div>
 
       {hoveredCandle && (
-        <div style={{
-          display: 'flex', gap: '12px', marginBottom: '6px',
-          fontSize: '10px', color: textSecondary
-        }}>
-          <span>O <strong style={{ color: hoveredCandle.open >= hoveredCandle.close ? '#FF4D4D' : '#00C087' }}>{formatPrice(hoveredCandle.open)}</strong></span>
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '6px', fontSize: '10px', color: textSecondary }}>
+          <span>O <strong style={{ color: hoveredCandle.open >= hoveredCandle.close ? '#FF4D4D' : '#00C087' }}>
+            {formatPrice(hoveredCandle.open)}
+          </strong></span>
           <span>H <strong style={{ color: '#00C087' }}>{formatPrice(hoveredCandle.high)}</strong></span>
           <span>L <strong style={{ color: '#FF4D4D' }}>{formatPrice(hoveredCandle.low)}</strong></span>
-          <span>C <strong style={{ color: hoveredCandle.close >= hoveredCandle.open ? '#00C087' : '#FF4D4D' }}>{formatPrice(hoveredCandle.close)}</strong></span>
+          <span>C <strong style={{ color: hoveredCandle.close >= hoveredCandle.open ? '#00C087' : '#FF4D4D' }}>
+            {formatPrice(hoveredCandle.close)}
+          </strong></span>
         </div>
       )}
 
-      <div style={{
-        background: chartBg, border: '1px solid ' + border,
-        borderRadius: '8px', overflow: 'hidden'
-      }}>
+      <div style={{ background: chartBg, border: '1px solid ' + border, borderRadius: '8px', overflow: 'hidden' }}>
         <svg
           viewBox={'0 0 ' + W + ' ' + H}
           style={{ width: '100%', height: 'auto', display: 'block' }}
@@ -149,11 +152,9 @@ function CryptoChart({ darkMode, basePrice, symbol, color }) {
             const y = toY(p)
             return (
               <g key={i}>
-                <line x1={padL} y1={y} x2={W - padR} y2={y}
-                  stroke={gridColor} strokeWidth="1" />
-                <text x={padL - 4} y={y + 3} textAnchor="end"
-                  fontSize="8" fill={textSecondary}>
-                  {formatPrice(p)}
+                <line x1={padL} y1={y} x2={W - padR} y2={y} stroke={gridColor} strokeWidth="1" />
+                <text x={padL - 4} y={y + 3} textAnchor="end" fontSize="7.5" fill={textSecondary}>
+                  {formatYAxis(p)}
                 </text>
               </g>
             )
@@ -162,8 +163,7 @@ function CryptoChart({ darkMode, basePrice, symbol, color }) {
           {xLabels.map(function(xl) {
             const x = padL + (xl.i + 0.5) * spacing
             return (
-              <text key={xl.i} x={x} y={H - 6} textAnchor="middle"
-                fontSize="7.5" fill={textSecondary}>
+              <text key={xl.i} x={x} y={H - 6} textAnchor="middle" fontSize="7.5" fill={textSecondary}>
                 {xl.label}
               </text>
             )
@@ -181,28 +181,14 @@ function CryptoChart({ darkMode, basePrice, symbol, color }) {
             const isHovered = hoveredCandle === c
 
             return (
-              <g key={i}
-                onMouseEnter={function() { setHoveredCandle(c) }}
-                style={{ cursor: 'crosshair' }}
-              >
+              <g key={i} onMouseEnter={function() { setHoveredCandle(c) }} style={{ cursor: 'crosshair' }}>
                 {isHovered && (
-                  <rect
-                    x={x - spacing / 2} y={padT}
-                    width={spacing} height={chartH}
-                    fill={coinColor} fillOpacity="0.06"
-                  />
+                  <rect x={x - spacing / 2} y={padT} width={spacing} height={chartH}
+                    fill={coinColor} fillOpacity="0.06" />
                 )}
-                <line
-                  x1={x} y1={wickTop} x2={x} y2={wickBot}
-                  stroke={candleColor} strokeWidth="1"
-                />
-                <rect
-                  x={x - candleWidth / 2} y={bodyTop}
-                  width={candleWidth} height={bodyH}
-                  fill={candleColor}
-                  fillOpacity={isGreen ? 1 : 1}
-                  rx="0.5"
-                />
+                <line x1={x} y1={wickTop} x2={x} y2={wickBot} stroke={candleColor} strokeWidth="1" />
+                <rect x={x - candleWidth / 2} y={bodyTop} width={candleWidth} height={bodyH}
+                  fill={candleColor} rx="0.5" />
               </g>
             )
           })}
