@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 import WalletButton from './WalletButton'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import CryptoChart from './CryptoChart'
-import { placeBetOnChain } from './betting'
+import { placeBetOnChain, claimWinningsOnChain } from './betting'
 
 const categoryColors = {
   Cricket: "#00C2FF",
@@ -367,6 +367,8 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
   const [showChart, setShowChart] = useState(false)
   const [betStatus, setBetStatus] = useState('')
   const [walletConnected, setWalletConnected] = useState(false)
+  const [claiming, setClaiming] = useState(false)
+  const [claimed, setClaimed] = useState(false)
 
   const bg = darkMode ? '#1a1a2e' : '#ffffff'
   const border = darkMode ? '#2a2a4a' : '#e8e8e8'
@@ -413,7 +415,7 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
   async function confirmBet() {
     setVoted(showConfirm)
     setShowConfirm(null)
-    if (walletConnected) {
+    if (walletConnected && market.chain_id) {
       try {
         setBetStatus('⏳ Approving USDT in MetaMask...')
         const tx = await placeBetOnChain(market.chain_id, showConfirm === 'yes', betAmount)
@@ -427,6 +429,25 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
       }
     }
     await onBet(market.id, showConfirm, betAmount)
+  }
+
+  async function handleClaim() {
+    if (!market.chain_id) {
+      alert('This market has no on-chain record to claim from.')
+      return
+    }
+    setClaiming(true)
+    try {
+      setBetStatus('⏳ Claiming winnings from contract...')
+      const tx = await claimWinningsOnChain(market.chain_id)
+      setClaimed(true)
+      setBetStatus('✅ Winnings claimed! TX: ' + tx.hash.slice(0, 10) + '...')
+      setTimeout(function() { setBetStatus('') }, 8000)
+    } catch (err) {
+      setBetStatus('❌ ' + (err.reason || err.message || 'Claim failed'))
+      setTimeout(function() { setBetStatus('') }, 5000)
+    }
+    setClaiming(false)
   }
 
   return (
@@ -467,7 +488,7 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
         </div>
       </div>
 
-      {walletConnected && (
+      {walletConnected && !market.resolved && (
         <div style={{
           background: 'rgba(0,192,135,0.08)', border: '1px solid rgba(0,192,135,0.2)',
           borderRadius: '6px', padding: '4px 8px', marginBottom: '8px',
@@ -478,11 +499,46 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
         </div>
       )}
 
+      {market.resolved && (
+        <div style={{
+          background: market.resolution === 'yes' ? 'rgba(0,192,135,0.12)' : 'rgba(255,77,77,0.12)',
+          border: '1px solid ' + (market.resolution === 'yes' ? 'rgba(0,192,135,0.4)' : 'rgba(255,77,77,0.4)'),
+          borderRadius: '8px', padding: '8px 12px', marginBottom: '12px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: market.resolution === 'yes' ? '#00C087' : '#FF4D4D', fontWeight: '700', fontSize: '13px' }}>
+              {market.resolution === 'yes' ? '✅ YES Won' : '❌ NO Won'}
+            </span>
+            {voted && (
+              <span style={{ color: voted === market.resolution ? '#00C087' : '#FF4D4D', fontWeight: '700', fontSize: '12px' }}>
+                {voted === market.resolution ? '🎉 You Won!' : '😔 You Lost'}
+              </span>
+            )}
+          </div>
+          {voted && voted === market.resolution && walletConnected && market.chain_id && !claimed && (
+            <button onClick={handleClaim} disabled={claiming} style={{
+              width: '100%', marginTop: '8px', padding: '10px',
+              background: claiming ? '#333' : 'linear-gradient(135deg, #00C087, #00a876)',
+              border: 'none', color: 'white', borderRadius: '8px',
+              cursor: claiming ? 'not-allowed' : 'pointer',
+              fontWeight: '700', fontSize: '13px'
+            }}>
+              {claiming ? '⏳ Claiming...' : '💰 Claim Winnings'}
+            </button>
+          )}
+          {claimed && (
+            <p style={{ color: '#00C087', fontSize: '12px', margin: '8px 0 0', textAlign: 'center', fontWeight: '600' }}>
+              ✅ Winnings claimed successfully!
+            </p>
+          )}
+        </div>
+      )}
+
       {showChart && (
         <CryptoChart darkMode={darkMode} basePrice={livePrice || defaultPrices[symbol]} symbol={symbol} color={coinColor} />
       )}
 
-      {showConfirm && (
+      {showConfirm && !market.resolved && (
         <div style={{
           background: inputBg,
           border: '1px solid ' + (showConfirm === 'yes' ? 'rgba(0,192,135,0.4)' : 'rgba(255,77,77,0.4)'),
@@ -523,7 +579,7 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
         </div>
       )}
 
-      {!showConfirm && (
+      {!showConfirm && !market.resolved && (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
           <button onClick={function() { handleVote('yes') }} disabled={!!voted} style={{
             flex: 1, padding: '10px 6px',
@@ -578,6 +634,8 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
   const [animating, setAnimating] = useState(false)
   const [betStatus, setBetStatus] = useState('')
   const [walletConnected, setWalletConnected] = useState(false)
+  const [claiming, setClaiming] = useState(false)
+  const [claimed, setClaimed] = useState(false)
 
   const bg = darkMode ? '#1a1a2e' : '#ffffff'
   const border = darkMode ? '#2a2a4a' : '#e8e8e8'
@@ -653,6 +711,25 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
     setTimeout(function() { setAnimating(false) }, 600)
   }
 
+  async function handleClaim() {
+    if (!market.chain_id) {
+      alert('This market has no on-chain record to claim from.')
+      return
+    }
+    setClaiming(true)
+    try {
+      setBetStatus('⏳ Claiming winnings from contract...')
+      const tx = await claimWinningsOnChain(market.chain_id)
+      setClaimed(true)
+      setBetStatus('✅ Winnings claimed! TX: ' + tx.hash.slice(0, 10) + '...')
+      setTimeout(function() { setBetStatus('') }, 8000)
+    } catch (err) {
+      setBetStatus('❌ ' + (err.reason || err.message || 'Claim failed'))
+      setTimeout(function() { setBetStatus('') }, 5000)
+    }
+    setClaiming(false)
+  }
+
   function shareOnWhatsApp() {
     const text = 'SouthPredict\n\n' + market.question + '\n\nYES ' + yesPrice + '% | NO ' + noPrice + '%\n\nBet now: https://southpredict-app.vercel.app'
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank')
@@ -726,16 +803,33 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
         <div style={{
           background: market.resolution === 'yes' ? 'rgba(0,192,135,0.12)' : 'rgba(255,77,77,0.12)',
           border: '1px solid ' + (market.resolution === 'yes' ? 'rgba(0,192,135,0.4)' : 'rgba(255,77,77,0.4)'),
-          borderRadius: '8px', padding: '8px 12px', marginBottom: '12px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+          borderRadius: '8px', padding: '8px 12px', marginBottom: '12px'
         }}>
-          <span style={{ color: market.resolution === 'yes' ? '#00C087' : '#FF4D4D', fontWeight: '700', fontSize: '13px' }}>
-            {market.resolution === 'yes' ? '✅ YES Won' : '❌ NO Won'}
-          </span>
-          {voted && (
-            <span style={{ color: voted === market.resolution ? '#00C087' : '#FF4D4D', fontWeight: '700', fontSize: '12px' }}>
-              {voted === market.resolution ? '🎉 You Won!' : '😔 You Lost'}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: market.resolution === 'yes' ? '#00C087' : '#FF4D4D', fontWeight: '700', fontSize: '13px' }}>
+              {market.resolution === 'yes' ? '✅ YES Won' : '❌ NO Won'}
             </span>
+            {voted && (
+              <span style={{ color: voted === market.resolution ? '#00C087' : '#FF4D4D', fontWeight: '700', fontSize: '12px' }}>
+                {voted === market.resolution ? '🎉 You Won!' : '😔 You Lost'}
+              </span>
+            )}
+          </div>
+          {voted && voted === market.resolution && walletConnected && market.chain_id && !claimed && (
+            <button onClick={handleClaim} disabled={claiming} style={{
+              width: '100%', marginTop: '8px', padding: '10px',
+              background: claiming ? '#333' : 'linear-gradient(135deg, #00C087, #00a876)',
+              border: 'none', color: 'white', borderRadius: '8px',
+              cursor: claiming ? 'not-allowed' : 'pointer',
+              fontWeight: '700', fontSize: '13px'
+            }}>
+              {claiming ? '⏳ Claiming...' : '💰 Claim Winnings'}
+            </button>
+          )}
+          {claimed && (
+            <p style={{ color: '#00C087', fontSize: '12px', margin: '8px 0 0', textAlign: 'center', fontWeight: '600' }}>
+              ✅ Winnings claimed successfully!
+            </p>
           )}
         </div>
       )}
