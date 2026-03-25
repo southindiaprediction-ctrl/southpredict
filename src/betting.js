@@ -25,8 +25,12 @@ export async function switchToPolygon() {
   }
 }
 
-export async function placeBetOnChain(marketId, isYes, amountUSDT) {
+export async function placeBetOnChain(chainMarketId, isYes, amountUSDT) {
   if (!window.ethereum) throw new Error('MetaMask not installed')
+
+  if (!chainMarketId || chainMarketId === null) {
+    throw new Error('This market is not available for on-chain betting yet')
+  }
 
   const accounts = await window.ethereum.request({ method: 'eth_accounts' })
   if (!accounts || accounts.length === 0) {
@@ -53,19 +57,19 @@ export async function placeBetOnChain(marketId, isYes, amountUSDT) {
   }
 
   const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer)
-  console.log('Placing bet...')
-  const tx = await contract.placeBet(marketId, isYes, amount)
+  console.log('Placing bet on chain market ID:', chainMarketId)
+  const tx = await contract.placeBet(chainMarketId, isYes, amount)
   await tx.wait()
   console.log('Bet placed:', tx.hash)
   return tx
 }
 
-export async function claimWinningsOnChain(marketId) {
+export async function claimWinningsOnChain(chainMarketId) {
   await switchToPolygon()
   const provider = new ethers.BrowserProvider(window.ethereum)
   const signer = await provider.getSigner()
   const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer)
-  const tx = await contract.claimWinnings(marketId)
+  const tx = await contract.claimWinnings(chainMarketId)
   await tx.wait()
   return tx
 }

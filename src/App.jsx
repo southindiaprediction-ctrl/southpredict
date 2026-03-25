@@ -416,7 +416,7 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
     if (walletConnected) {
       try {
         setBetStatus('⏳ Approving USDT in MetaMask...')
-        const tx = await placeBetOnChain(market.id, showConfirm === 'yes', betAmount)
+        const tx = await placeBetOnChain(market.chain_id, showConfirm === 'yes', betAmount)
         setBetStatus('✅ Bet confirmed on Polygon! TX: ' + tx.hash.slice(0, 10) + '...')
         setTimeout(function() { setBetStatus('') }, 8000)
       } catch (err) {
@@ -631,10 +631,10 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
     setVoted(showConfirm)
     setShowConfirm(null)
 
-    if (walletConnected) {
+    if (walletConnected && market.chain_id) {
       try {
         setBetStatus('⏳ Approving USDT in MetaMask...')
-        const tx = await placeBetOnChain(market.id, showConfirm === 'yes', betAmount)
+        const tx = await placeBetOnChain(market.chain_id, showConfirm === 'yes', betAmount)
         setBetStatus('✅ Bet confirmed on Polygon! TX: ' + tx.hash.slice(0, 10) + '...')
         setTimeout(function() { setBetStatus('') }, 8000)
       } catch (err) {
@@ -644,6 +644,9 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
         setAnimating(false)
         return
       }
+    } else if (walletConnected && !market.chain_id) {
+      setBetStatus('⚠️ Play money bet — this market is not on-chain yet')
+      setTimeout(function() { setBetStatus('') }, 4000)
     }
 
     await onBet(market.id, showConfirm, betAmount)
@@ -683,6 +686,12 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
               padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: '700'
             }}>RESOLVED</span>
           )}
+          {market.chain_id && walletConnected && (
+            <span style={{
+              background: 'rgba(0,192,135,0.15)', color: '#00C087',
+              padding: '2px 6px', borderRadius: '20px', fontSize: '9px', fontWeight: '700'
+            }}>⛓️ ON-CHAIN</span>
+          )}
           <span style={{ color: textSecondary, fontSize: '11px' }}>{market.closes}</span>
         </div>
       </div>
@@ -701,12 +710,15 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
 
       {walletConnected && !market.resolved && (
         <div style={{
-          background: 'rgba(0,192,135,0.08)', border: '1px solid rgba(0,192,135,0.2)',
+          background: market.chain_id ? 'rgba(0,192,135,0.08)' : 'rgba(255,179,71,0.08)',
+          border: '1px solid ' + (market.chain_id ? 'rgba(0,192,135,0.2)' : 'rgba(255,179,71,0.2)'),
           borderRadius: '6px', padding: '4px 8px', marginBottom: '8px',
           display: 'flex', alignItems: 'center', gap: '6px'
         }}>
-          <span style={{ fontSize: '10px' }}>🔐</span>
-          <span style={{ color: '#00C087', fontSize: '10px', fontWeight: '600' }}>Real USDT betting active</span>
+          <span style={{ fontSize: '10px' }}>{market.chain_id ? '🔐' : '⚠️'}</span>
+          <span style={{ color: market.chain_id ? '#00C087' : '#FFB347', fontSize: '10px', fontWeight: '600' }}>
+            {market.chain_id ? 'Real USDT betting active' : 'Play money only — not on-chain yet'}
+          </span>
         </div>
       )}
 
@@ -780,7 +792,9 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
         }}>
           <p style={{ color: textSecondary, margin: '0 0 4px', fontSize: '11px' }}>
             Buying <strong style={{ color: textPrimary }}>{showConfirm.toUpperCase()}</strong>
-            {walletConnected && <span style={{ color: '#00C087', marginLeft: '6px', fontWeight: '700' }}>· Real USDT on Polygon</span>}
+            {walletConnected && market.chain_id && (
+              <span style={{ color: '#00C087', marginLeft: '6px', fontWeight: '700' }}>· Real USDT on Polygon</span>
+            )}
             {' · New price: '}
             <strong style={{ color: showConfirm === 'yes' ? '#00C087' : '#FF4D4D' }}>
               {getNewPrice(showConfirm, betAmount)}¢
