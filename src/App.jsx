@@ -104,11 +104,18 @@ function generateChartData(yesPercent) {
   } catch (e) { return [{ t: 0, v: 50 }] }
 }
 
+async function checkWalletConnected() {
+  try {
+    if (!window.ethereum) return false
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' })
+    return !!(accounts && accounts.length > 0)
+  } catch (e) { return false }
+}
+
 function BetStatusBar({ status }) {
   if (!status) return null
   const isSuccess = status.includes('✅')
   const isError = status.includes('❌')
-  const isPending = status.includes('⏳')
   return (
     <div style={{
       padding: '8px 12px', marginBottom: '8px',
@@ -359,12 +366,22 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
   const [betAmount, setBetAmount] = useState(1)
   const [showChart, setShowChart] = useState(false)
   const [betStatus, setBetStatus] = useState('')
+  const [walletConnected, setWalletConnected] = useState(false)
 
   const bg = darkMode ? '#1a1a2e' : '#ffffff'
   const border = darkMode ? '#2a2a4a' : '#e8e8e8'
   const textPrimary = darkMode ? '#ffffff' : '#0d0d0d'
   const textSecondary = darkMode ? '#888' : '#666'
   const inputBg = darkMode ? '#0f0f23' : '#f5f5f5'
+
+  useEffect(function() {
+    checkWalletConnected().then(setWalletConnected)
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', function(accs) {
+        setWalletConnected(!!(accs && accs.length > 0))
+      })
+    }
+  }, [])
 
   const symbol = getCryptoSymbol(market.question)
   const coinColor = cryptoColor[symbol] || '#F7931A'
@@ -384,12 +401,11 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
     '4h': '4 Hours', '1d': 'Today', '1w': 'This Week'
   }
 
-  const walletConnected = window.ethereum && window.ethereum.selectedAddress
   const betAmounts = walletConnected ? [1, 2, 5, 10] : [10, 50, 100, 500]
-  const betLabel = walletConnected ? 'USDT' : '₹'
+  const betLabel = walletConnected ? 'USDT ' : '₹'
 
   function handleVote(choice) {
-    if (!user) { alert('Please sign in!'); return }
+    if (!user) { alert('Please sign in first!'); return }
     if (voted || market.resolved) return
     setShowConfirm(choice)
   }
@@ -397,12 +413,11 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
   async function confirmBet() {
     setVoted(showConfirm)
     setShowConfirm(null)
-
     if (walletConnected) {
       try {
-        setBetStatus('⏳ Approving USDT...')
+        setBetStatus('⏳ Approving USDT in MetaMask...')
         const tx = await placeBetOnChain(market.id, showConfirm === 'yes', betAmount)
-        setBetStatus('✅ Confirmed! TX: ' + tx.hash.slice(0, 10) + '...')
+        setBetStatus('✅ Bet confirmed on Polygon! TX: ' + tx.hash.slice(0, 10) + '...')
         setTimeout(function() { setBetStatus('') }, 8000)
       } catch (err) {
         setBetStatus('❌ ' + (err.reason || err.message || 'Transaction failed'))
@@ -411,7 +426,6 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
         return
       }
     }
-
     await onBet(market.id, showConfirm, betAmount)
   }
 
@@ -460,9 +474,7 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
           display: 'flex', alignItems: 'center', gap: '6px'
         }}>
           <span style={{ fontSize: '10px' }}>🔐</span>
-          <span style={{ color: '#00C087', fontSize: '10px', fontWeight: '600' }}>
-            Real USDT betting active
-          </span>
+          <span style={{ color: '#00C087', fontSize: '10px', fontWeight: '600' }}>Real USDT betting active</span>
         </div>
       )}
 
@@ -478,7 +490,7 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
         }}>
           <p style={{ color: textSecondary, margin: '0 0 8px', fontSize: '11px' }}>
             Betting {showConfirm === 'yes' ? '📈 UP' : '📉 DOWN'}
-            {walletConnected && <span style={{ color: '#00C087', marginLeft: '6px' }}>· Real USDT</span>}
+            {walletConnected && <span style={{ color: '#00C087', marginLeft: '6px', fontWeight: '700' }}>· Real USDT on Polygon</span>}
           </p>
           <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
             {betAmounts.map(function(amt) {
@@ -565,6 +577,7 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
   const [lineChartData] = useState(function() { return generateChartData(market.yes_percent || 50) })
   const [animating, setAnimating] = useState(false)
   const [betStatus, setBetStatus] = useState('')
+  const [walletConnected, setWalletConnected] = useState(false)
 
   const bg = darkMode ? '#1a1a2e' : '#ffffff'
   const border = darkMode ? '#2a2a4a' : '#e8e8e8'
@@ -572,12 +585,20 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
   const textSecondary = darkMode ? '#888' : '#666'
   const inputBg = darkMode ? '#0f0f23' : '#f5f5f5'
 
+  useEffect(function() {
+    checkWalletConnected().then(setWalletConnected)
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', function(accs) {
+        setWalletConnected(!!(accs && accs.length > 0))
+      })
+    }
+  }, [])
+
   const isCrypto = market.category === 'Crypto'
   const cryptoSymbol = isCrypto ? getCryptoSymbol(market.question) : null
   const livePrice = livePrices && cryptoSymbol ? livePrices[cryptoSymbol] : (cryptoSymbol ? defaultPrices[cryptoSymbol] : null)
   const cryptoCol = cryptoSymbol ? (cryptoColor[cryptoSymbol] || '#F7931A') : '#F7931A'
 
-  const walletConnected = window.ethereum && window.ethereum.selectedAddress
   const betAmounts = walletConnected ? [1, 2, 5, 10] : [10, 50, 100, 500]
   const betLabel = walletConnected ? 'USDT ' : '₹'
 
@@ -612,9 +633,9 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
 
     if (walletConnected) {
       try {
-        setBetStatus('⏳ Approving USDT...')
+        setBetStatus('⏳ Approving USDT in MetaMask...')
         const tx = await placeBetOnChain(market.id, showConfirm === 'yes', betAmount)
-        setBetStatus('✅ Confirmed! TX: ' + tx.hash.slice(0, 10) + '...')
+        setBetStatus('✅ Bet confirmed on Polygon! TX: ' + tx.hash.slice(0, 10) + '...')
         setTimeout(function() { setBetStatus('') }, 8000)
       } catch (err) {
         setBetStatus('❌ ' + (err.reason || err.message || 'Transaction failed'))
@@ -685,9 +706,7 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
           display: 'flex', alignItems: 'center', gap: '6px'
         }}>
           <span style={{ fontSize: '10px' }}>🔐</span>
-          <span style={{ color: '#00C087', fontSize: '10px', fontWeight: '600' }}>
-            Real USDT betting active
-          </span>
+          <span style={{ color: '#00C087', fontSize: '10px', fontWeight: '600' }}>Real USDT betting active</span>
         </div>
       )}
 
@@ -761,7 +780,7 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
         }}>
           <p style={{ color: textSecondary, margin: '0 0 4px', fontSize: '11px' }}>
             Buying <strong style={{ color: textPrimary }}>{showConfirm.toUpperCase()}</strong>
-            {walletConnected && <span style={{ color: '#00C087', marginLeft: '6px' }}>· Real USDT</span>}
+            {walletConnected && <span style={{ color: '#00C087', marginLeft: '6px', fontWeight: '700' }}>· Real USDT on Polygon</span>}
             {' · New price: '}
             <strong style={{ color: showConfirm === 'yes' ? '#00C087' : '#FF4D4D' }}>
               {getNewPrice(showConfirm, betAmount)}¢
@@ -1180,8 +1199,7 @@ function App() {
 
       <footer style={{
         borderTop: '1px solid ' + border,
-        marginTop: '40px',
-        padding: '28px 16px',
+        marginTop: '40px', padding: '28px 16px',
         background: darkMode ? '#0a0a1a' : '#f0f0f0'
       }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -1205,7 +1223,7 @@ function App() {
               © {new Date().getFullYear()} SouthPredict. All rights reserved.
             </p>
             <p style={{ color: textSecondary, fontSize: '11px', margin: 0, textAlign: 'right' }}>
-              For entertainment only · Play money · Not financial advice · Users must be 18+
+              For entertainment only · Not financial advice · Users must be 18+
             </p>
           </div>
           <p style={{ color: darkMode ? '#444' : '#bbb', fontSize: '11px', margin: '10px 0 0', textAlign: 'center' }}>
@@ -1218,3 +1236,5 @@ function App() {
     </div>
   )
 }
+
+export default App
