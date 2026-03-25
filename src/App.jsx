@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import WalletButton from './WalletButton'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import CryptoChart from './CryptoChart'
+import { placeBetOnChain } from './betting'
 
 const categoryColors = {
   Cricket: "#00C2FF",
@@ -101,6 +102,24 @@ function generateChartData(yesPercent) {
     data.push({ t: 20, v: yesPercent || 50 })
     return data
   } catch (e) { return [{ t: 0, v: 50 }] }
+}
+
+function BetStatusBar({ status }) {
+  if (!status) return null
+  const isSuccess = status.includes('✅')
+  const isError = status.includes('❌')
+  const isPending = status.includes('⏳')
+  return (
+    <div style={{
+      padding: '8px 12px', marginBottom: '8px',
+      borderRadius: '8px', fontSize: '12px', fontWeight: '600',
+      background: isSuccess ? 'rgba(0,192,135,0.1)' : isError ? 'rgba(255,77,77,0.1)' : 'rgba(255,179,71,0.1)',
+      color: isSuccess ? '#00C087' : isError ? '#FF4D4D' : '#FFB347',
+      border: '1px solid ' + (isSuccess ? 'rgba(0,192,135,0.3)' : isError ? 'rgba(255,77,77,0.3)' : 'rgba(255,179,71,0.3)')
+    }}>
+      {status}
+    </div>
+  )
 }
 
 function WeatherWidget({ darkMode }) {
@@ -337,8 +356,9 @@ function CoinFilter({ darkMode, activeCoin, setActiveCoin, border, textSecondary
 function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
   const [voted, setVoted] = useState(null)
   const [showConfirm, setShowConfirm] = useState(null)
-  const [betAmount, setBetAmount] = useState(10)
+  const [betAmount, setBetAmount] = useState(1)
   const [showChart, setShowChart] = useState(false)
+  const [betStatus, setBetStatus] = useState('')
 
   const bg = darkMode ? '#1a1a2e' : '#ffffff'
   const border = darkMode ? '#2a2a4a' : '#e8e8e8'
@@ -364,6 +384,10 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
     '4h': '4 Hours', '1d': 'Today', '1w': 'This Week'
   }
 
+  const walletConnected = window.ethereum && window.ethereum.selectedAddress
+  const betAmounts = walletConnected ? [1, 2, 5, 10] : [10, 50, 100, 500]
+  const betLabel = walletConnected ? 'USDT' : '₹'
+
   function handleVote(choice) {
     if (!user) { alert('Please sign in!'); return }
     if (voted || market.resolved) return
@@ -372,8 +396,23 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
 
   async function confirmBet() {
     setVoted(showConfirm)
-    await onBet(market.id, showConfirm, betAmount)
     setShowConfirm(null)
+
+    if (walletConnected) {
+      try {
+        setBetStatus('⏳ Approving USDT...')
+        const tx = await placeBetOnChain(market.id, showConfirm === 'yes', betAmount)
+        setBetStatus('✅ Confirmed! TX: ' + tx.hash.slice(0, 10) + '...')
+        setTimeout(function() { setBetStatus('') }, 8000)
+      } catch (err) {
+        setBetStatus('❌ ' + (err.reason || err.message || 'Transaction failed'))
+        setTimeout(function() { setBetStatus('') }, 5000)
+        setVoted(null)
+        return
+      }
+    }
+
+    await onBet(market.id, showConfirm, betAmount)
   }
 
   return (
@@ -401,20 +440,31 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
             </p>
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ width: '48px', height: '48px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg viewBox="0 0 36 36" style={{ width: '48px', height: '48px', transform: 'rotate(-90deg)' }}>
-              <circle cx="18" cy="18" r="15" fill="none" stroke={darkMode ? '#2a2a4a' : '#f0f0f0'} strokeWidth="3" />
-              <circle cx="18" cy="18" r="15" fill="none" stroke="#00C087" strokeWidth="3"
-                strokeDasharray={upPercent * 0.942 + ' 100'} strokeLinecap="round" />
-            </svg>
-            <div style={{ position: 'absolute', textAlign: 'center' }}>
-              <p style={{ color: '#00C087', fontSize: '10px', fontWeight: '800', margin: 0, lineHeight: 1 }}>{upPercent}%</p>
-              <p style={{ color: textSecondary, fontSize: '8px', margin: 0 }}>Up</p>
-            </div>
+        <div style={{ width: '48px', height: '48px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg viewBox="0 0 36 36" style={{ width: '48px', height: '48px', transform: 'rotate(-90deg)' }}>
+            <circle cx="18" cy="18" r="15" fill="none" stroke={darkMode ? '#2a2a4a' : '#f0f0f0'} strokeWidth="3" />
+            <circle cx="18" cy="18" r="15" fill="none" stroke="#00C087" strokeWidth="3"
+              strokeDasharray={upPercent * 0.942 + ' 100'} strokeLinecap="round" />
+          </svg>
+          <div style={{ position: 'absolute', textAlign: 'center' }}>
+            <p style={{ color: '#00C087', fontSize: '10px', fontWeight: '800', margin: 0, lineHeight: 1 }}>{upPercent}%</p>
+            <p style={{ color: textSecondary, fontSize: '8px', margin: 0 }}>Up</p>
           </div>
         </div>
       </div>
+
+      {walletConnected && (
+        <div style={{
+          background: 'rgba(0,192,135,0.08)', border: '1px solid rgba(0,192,135,0.2)',
+          borderRadius: '6px', padding: '4px 8px', marginBottom: '8px',
+          display: 'flex', alignItems: 'center', gap: '6px'
+        }}>
+          <span style={{ fontSize: '10px' }}>🔐</span>
+          <span style={{ color: '#00C087', fontSize: '10px', fontWeight: '600' }}>
+            Real USDT betting active
+          </span>
+        </div>
+      )}
 
       {showChart && (
         <CryptoChart darkMode={darkMode} basePrice={livePrice || defaultPrices[symbol]} symbol={symbol} color={coinColor} />
@@ -428,9 +478,10 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
         }}>
           <p style={{ color: textSecondary, margin: '0 0 8px', fontSize: '11px' }}>
             Betting {showConfirm === 'yes' ? '📈 UP' : '📉 DOWN'}
+            {walletConnected && <span style={{ color: '#00C087', marginLeft: '6px' }}>· Real USDT</span>}
           </p>
           <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-            {[10, 50, 100, 500].map(function(amt) {
+            {betAmounts.map(function(amt) {
               return (
                 <button key={amt} onClick={function() { setBetAmount(amt) }} style={{
                   flex: 1, padding: '5px 2px', borderRadius: '6px', border: '1px solid',
@@ -438,7 +489,7 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
                   background: betAmount === amt ? (darkMode ? 'white' : '#0d0d0d') : 'transparent',
                   color: betAmount === amt ? (darkMode ? '#0d0d0d' : 'white') : textSecondary,
                   cursor: 'pointer', fontSize: '11px', fontWeight: betAmount === amt ? '700' : '400'
-                }}>₹{amt}</button>
+                }}>{betLabel}{amt}</button>
               )
             })}
           </div>
@@ -449,7 +500,7 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
               border: 'none', color: 'white', borderRadius: '8px',
               cursor: 'pointer', fontWeight: '700', fontSize: '12px'
             }}>
-              {showConfirm === 'yes' ? '📈 UP' : '📉 DOWN'} · ₹{betAmount}
+              {showConfirm === 'yes' ? '📈 UP' : '📉 DOWN'} · {betLabel}{betAmount}
             </button>
             <button onClick={function() { setShowConfirm(null) }} style={{
               padding: '9px 12px', background: 'transparent',
@@ -471,7 +522,7 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
             fontWeight: '700', fontSize: '13px',
             opacity: voted && voted !== 'yes' ? 0.3 : 1
           }}>
-            {voted === 'yes' ? 'Bet Up ✓' : '📈 Up +₹' + Math.round(betAmount * parseFloat(upMultiplier))}
+            {voted === 'yes' ? 'Bet Up ✓' : '📈 Up +' + betLabel + Math.round(betAmount * parseFloat(upMultiplier))}
           </button>
           <button onClick={function() { handleVote('no') }} disabled={!!voted} style={{
             flex: 1, padding: '10px 6px',
@@ -482,10 +533,12 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
             fontWeight: '700', fontSize: '13px',
             opacity: voted && voted !== 'no' ? 0.3 : 1
           }}>
-            {voted === 'no' ? 'Bet Down ✓' : '📉 Down +₹' + Math.round(betAmount * parseFloat(downMultiplier))}
+            {voted === 'no' ? 'Bet Down ✓' : '📉 Down +' + betLabel + Math.round(betAmount * parseFloat(downMultiplier))}
           </button>
         </div>
       )}
+
+      <BetStatusBar status={betStatus} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -506,11 +559,12 @@ function UpDownCard({ market, onBet, user, darkMode, livePrices }) {
 
 function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
   const [voted, setVoted] = useState(null)
-  const [betAmount, setBetAmount] = useState(10)
+  const [betAmount, setBetAmount] = useState(1)
   const [showConfirm, setShowConfirm] = useState(null)
   const [showChart, setShowChart] = useState(false)
   const [lineChartData] = useState(function() { return generateChartData(market.yes_percent || 50) })
   const [animating, setAnimating] = useState(false)
+  const [betStatus, setBetStatus] = useState('')
 
   const bg = darkMode ? '#1a1a2e' : '#ffffff'
   const border = darkMode ? '#2a2a4a' : '#e8e8e8'
@@ -522,6 +576,10 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
   const cryptoSymbol = isCrypto ? getCryptoSymbol(market.question) : null
   const livePrice = livePrices && cryptoSymbol ? livePrices[cryptoSymbol] : (cryptoSymbol ? defaultPrices[cryptoSymbol] : null)
   const cryptoCol = cryptoSymbol ? (cryptoColor[cryptoSymbol] || '#F7931A') : '#F7931A'
+
+  const walletConnected = window.ethereum && window.ethereum.selectedAddress
+  const betAmounts = walletConnected ? [1, 2, 5, 10] : [10, 50, 100, 500]
+  const betLabel = walletConnected ? 'USDT ' : '₹'
 
   const yesPool = market.yes_pool || (market.yes_percent * 100) || 5000
   const noPool = market.no_pool || ((100 - market.yes_percent) * 100) || 5000
@@ -550,8 +608,24 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
   async function confirmBet() {
     setAnimating(true)
     setVoted(showConfirm)
-    await onBet(market.id, showConfirm, betAmount)
     setShowConfirm(null)
+
+    if (walletConnected) {
+      try {
+        setBetStatus('⏳ Approving USDT...')
+        const tx = await placeBetOnChain(market.id, showConfirm === 'yes', betAmount)
+        setBetStatus('✅ Confirmed! TX: ' + tx.hash.slice(0, 10) + '...')
+        setTimeout(function() { setBetStatus('') }, 8000)
+      } catch (err) {
+        setBetStatus('❌ ' + (err.reason || err.message || 'Transaction failed'))
+        setTimeout(function() { setBetStatus('') }, 5000)
+        setVoted(null)
+        setAnimating(false)
+        return
+      }
+    }
+
+    await onBet(market.id, showConfirm, betAmount)
     setTimeout(function() { setAnimating(false) }, 600)
   }
 
@@ -600,6 +674,19 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
         <div style={{ marginBottom: '8px' }}>
           <span style={{ color: cryptoCol, fontSize: '11px', fontWeight: '600' }}>
             {cryptoSymbol}/USDT ${Math.round(livePrice).toLocaleString()}
+          </span>
+        </div>
+      )}
+
+      {walletConnected && !market.resolved && (
+        <div style={{
+          background: 'rgba(0,192,135,0.08)', border: '1px solid rgba(0,192,135,0.2)',
+          borderRadius: '6px', padding: '4px 8px', marginBottom: '8px',
+          display: 'flex', alignItems: 'center', gap: '6px'
+        }}>
+          <span style={{ fontSize: '10px' }}>🔐</span>
+          <span style={{ color: '#00C087', fontSize: '10px', fontWeight: '600' }}>
+            Real USDT betting active
           </span>
         </div>
       )}
@@ -674,13 +761,14 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
         }}>
           <p style={{ color: textSecondary, margin: '0 0 4px', fontSize: '11px' }}>
             Buying <strong style={{ color: textPrimary }}>{showConfirm.toUpperCase()}</strong>
+            {walletConnected && <span style={{ color: '#00C087', marginLeft: '6px' }}>· Real USDT</span>}
             {' · New price: '}
             <strong style={{ color: showConfirm === 'yes' ? '#00C087' : '#FF4D4D' }}>
               {getNewPrice(showConfirm, betAmount)}¢
             </strong>
           </p>
           <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-            {[10, 50, 100, 500].map(function(amt) {
+            {betAmounts.map(function(amt) {
               return (
                 <button key={amt} onClick={function() { setBetAmount(amt) }} style={{
                   flex: 1, padding: '6px 2px', borderRadius: '6px', border: '1px solid',
@@ -688,7 +776,7 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
                   background: betAmount === amt ? (darkMode ? 'white' : '#0d0d0d') : 'transparent',
                   color: betAmount === amt ? (darkMode ? '#0d0d0d' : 'white') : textSecondary,
                   cursor: 'pointer', fontSize: '11px', fontWeight: betAmount === amt ? '700' : '400'
-                }}>{'₹' + amt}</button>
+                }}>{betLabel}{amt}</button>
               )
             })}
           </div>
@@ -699,7 +787,7 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
               border: 'none', color: 'white', borderRadius: '8px',
               cursor: 'pointer', fontWeight: '700', fontSize: '13px'
             }}>
-              {'Buy ' + showConfirm.toUpperCase() + ' · ₹' + betAmount}
+              {'Buy ' + showConfirm.toUpperCase() + ' · ' + betLabel + betAmount}
             </button>
             <button onClick={function() { setShowConfirm(null) }} style={{
               padding: '10px 12px', background: 'transparent',
@@ -745,6 +833,8 @@ function MarketCard({ market, onBet, user, darkMode, isGrid, livePrices }) {
           <p style={{ color: textSecondary, fontSize: '12px', margin: 0 }}>Market resolved — no more bets</p>
         </div>
       )}
+
+      <BetStatusBar status={betStatus} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1097,8 +1187,7 @@ function App() {
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{
             display: 'flex', justifyContent: 'space-between',
-            alignItems: 'center', flexWrap: 'wrap', gap: '16px',
-            marginBottom: '16px'
+            alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '16px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '20px' }}>🏏</span>
@@ -1129,5 +1218,3 @@ function App() {
     </div>
   )
 }
-
-export default App

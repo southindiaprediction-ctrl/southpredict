@@ -9,7 +9,9 @@ interface IERC20 {
 
 contract SouthPredict {
     address public owner;
-    IERC20 public usdc;
+    IERC20 public usdt;
+    uint256 public feePercent = 2;
+    uint256 public collectedFees;
 
     struct Market {
         uint256 id;
@@ -35,15 +37,16 @@ contract SouthPredict {
     event BetPlaced(uint256 indexed marketId, address indexed bettor, bool isYes, uint256 amount);
     event MarketResolved(uint256 indexed marketId, bool yesWon);
     event WinningsClaimed(uint256 indexed marketId, address indexed bettor, uint256 amount);
+    event FeesWithdrawn(address indexed owner, uint256 amount);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
         _;
     }
 
-    constructor(address _usdc) {
+    constructor(address _usdt) {
         owner = msg.sender;
-        usdc = IERC20(_usdc);
+        usdt = IERC20(_usdt);
     }
 
     function createMarket(string memory _question) external onlyOwner {
@@ -67,31 +70,34 @@ contract SouthPredict {
         require(_amount > 0, "Amount must be greater than 0");
         require(bets[_marketId][msg.sender].amount == 0, "Already bet on this market");
 
-        require(usdc.transferFrom(msg.sender, address(this), _amount), "USDC transfer failed");
+        // Take 2% fee
+        uint256 fee = (_amount * feePercent) / 100;
+        uint256 betAmount = _amount - fee;
+        collectedFees += fee;
+
+        require(usdt.transferFrom(msg.sender, address(this), _amount), "USDT transfer failed");
 
         bets[_marketId][msg.sender] = Bet({
-            amount: _amount,
+            amount: betAmount,
             isYes: _isYes,
             claimed: false
         });
 
         if (_isYes) {
-            market.yesPool += _amount;
+            market.yesPool += betAmount;
         } else {
-            market.noPool += _amount;
+            market.noPool += betAmount;
         }
 
-        emit BetPlaced(_marketId, msg.sender, _isYes, _amount);
+        emit BetPlaced(_marketId, msg.sender, _isYes, betAmount);
     }
 
     function resolveMarket(uint256 _marketId, bool _yesWon) external onlyOwner {
         Market storage market = markets[_marketId];
         require(market.exists, "Market does not exist");
         require(!market.resolved, "Already resolved");
-
         market.resolved = true;
         market.yesWon = _yesWon;
-
         emit MarketResolved(_marketId, _yesWon);
     }
 
@@ -110,9 +116,26 @@ contract SouthPredict {
         uint256 winningPool = market.yesWon ? market.yesPool : market.noPool;
         uint256 winnings = (bet.amount * totalPool) / winningPool;
 
-        require(usdc.transfer(msg.sender, winnings), "Transfer failed");
-
+        require(usdt.transfer(msg.sender, winnings), "Transfer failed");
         emit WinningsClaimed(_marketId, msg.sender, winnings);
+    }
+
+    function withdrawFees() external onlyOwner {
+        uint256 amount = collectedFees;
+        require(amount > 0, "No fees to withdraw");
+        collectedFees = 0;
+        require(usdt.transfer(owner, amount), "Transfer failed");
+        emit FeesWithdrawn(owner, amount);
+    }
+
+    function setFeePercent(uint256 _feePercent) external onlyOwner {
+        require(_feePercent <= 5, "Fee too high");
+        feePercent = _feePercent;
+    }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Invalid address");
+        owner = newOwner;
     }
 
     function getMarket(uint256 _marketId) external view returns (Market memory) {
@@ -121,5 +144,9 @@ contract SouthPredict {
 
     function getBet(uint256 _marketId, address _bettor) external view returns (Bet memory) {
         return bets[_marketId][_bettor];
+    }
+
+    function getCollectedFees() external view returns (uint256) {
+        return collectedFees;
     }
 }
